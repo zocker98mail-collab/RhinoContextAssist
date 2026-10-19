@@ -34,7 +34,7 @@ internal sealed class ContextToolbarForm : Form
             Spacing = 4,
             Items =
             {
-                new Label { Text = context.Caption, Font = new Font(SystemFont.Default, 9, FontStyle.Bold) },
+                new Label { Text = context.Caption },
                 buttons
             }
         };
@@ -44,6 +44,6 @@ internal sealed class ContextToolbarForm : Form
     {
         var p = Mouse.Position;
         Location = new Point((int)p.X + 14, (int)p.Y + 18);
-        Show(doc);
+        Show();
     }
 }
