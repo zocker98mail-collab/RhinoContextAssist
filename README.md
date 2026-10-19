@@ -3,8 +3,8 @@
 ## Änderungen
 - Vollständig deutsche Beschriftungen und Tooltips, interne Rhino-Makros bleiben sprachunabhängig englisch mit `_`.
 - Popup bleibt innerhalb des Arbeitsbereichs des aktuellen Monitors.
-- Ein einziges Popup wird wiederverwendet; weniger Flackern und keine ständig neuen Fenster.
-- Automatisches Ausblenden bei Abwahl, Escape, Dokumentwechsel, Dokumentende und laufenden Rhino-Befehlen/Punktabfragen.
+- Das Popup wird bei Kontextänderungen sauber geschlossen und neu erstellt; Auswahlereignisse werden weiterhin entprellt, um Flackern zu reduzieren.
+- Automatisches Ausblenden bei Abwahl, Escape, Dokumentwechsel, Dokumentende und laufenden Rhino-Befehlen.
 - Befehlsliste auf sinnvolle, üblicherweise mit Vorauswahl verwendbare Befehle reduziert. `Inset` und `Shell` wurden vorerst entfernt, weil das Verhalten je nach Auswahlkontext uneinheitlich ist.
 - Deutsche Steuerbefehle: `ContextAssistAn`, `ContextAssistAus`, `ContextAssistUmschalten`.
 - GitHub-Actions-Workflow ist enthalten.

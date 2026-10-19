@@ -52,7 +52,7 @@ internal sealed class ContextAssistController : IDisposable
         if (doc is null) { Hide(); return; }
 
         // Toolbar während laufender Rhino-Befehle, Punktabfragen und Transformationen ausblenden.
-        if (!_executingOwnAction && (doc.IsCommandRunning || doc.InGetPoint))
+        if (!_executingOwnAction && doc.IsCommandRunning)
         {
             Hide();
             return;
@@ -68,15 +68,18 @@ internal sealed class ContextAssistController : IDisposable
     {
         if (!Enabled) { Hide(); return; }
         var doc = RhinoDoc.ActiveDoc;
-        if (doc is null || doc.IsCommandRunning || doc.InGetPoint) { Hide(); return; }
+        if (doc is null) { Hide(); return; }
+        if (doc.IsCommandRunning) { Hide(); return; }
 
         var context = SelectionAnalyzer.Analyze(doc);
         if (context.Kind == SelectionKind.None) { Hide(); return; }
         var actions = ActionResolver.Resolve(context).Take(5).ToList();
         if (actions.Count == 0) { Hide(); return; }
 
-        _form ??= new ContextToolbarForm(ExecuteAction, Hide);
-        if (_lastSignature != context.Signature || !_form.Visible)
+        if (_form is null || !_form.Visible)
+            _form = new ContextToolbarForm(ExecuteAction, Hide);
+
+        if (_lastSignature != context.Signature)
         {
             _form.UpdateActions(context, actions);
             _lastSignature = context.Signature;
@@ -99,7 +102,11 @@ internal sealed class ContextAssistController : IDisposable
     {
         _refreshDue = DateTime.MaxValue;
         _lastSignature = string.Empty;
-        if (_form?.Visible == true) _form.Hide();
+        if (_form is not null)
+        {
+            try { _form.Close(); } catch { }
+            _form = null;
+        }
     }
 
     public void Dispose()

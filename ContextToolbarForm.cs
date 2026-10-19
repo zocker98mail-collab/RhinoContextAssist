@@ -52,12 +52,16 @@ internal sealed class ContextToolbarForm : Form
         // Nach dem Anzeigen ist die tatsächliche Fenstergröße bekannt.
         var screen = Screen.FromPoint(mouse);
         var work = screen.WorkingArea;
+        var left = (int)work.Left;
+        var top = (int)work.Top;
+        var right = (int)work.Right;
+        var bottom = (int)work.Bottom;
         var x = Location.X;
         var y = Location.Y;
-        if (x + Width > work.Right) x = Math.Max(work.Left, work.Right - Width);
-        if (y + Height > work.Bottom) y = Math.Max(work.Top, work.Bottom - Height);
-        if (x < work.Left) x = work.Left;
-        if (y < work.Top) y = work.Top;
+        if (x + Width > right) x = Math.Max(left, right - Width);
+        if (y + Height > bottom) y = Math.Max(top, bottom - Height);
+        if (x < left) x = left;
+        if (y < top) y = top;
         Location = new Point(x, y);
     }
 }
