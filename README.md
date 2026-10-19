@@ -1,8 +1,14 @@
-# Rhino Context Assist 0.2.1
+# Rhino Context Assist 0.3
 
-## Neu
-- `ShowActivated = false`: Das automatisch erscheinende Popup übernimmt nicht mehr den Tastaturfokus. Befehle können direkt eingegeben werden.
-- Extrusions-Unterflächen: Native `Extrusion`-Geometrie wird für die Analyse mit `ToBrep()` in eine Brep-Repräsentation umgewandelt. Strg+Umschalt gewählte Flächen werden dadurch als planare oder gekrümmte Teilfläche erkannt.
+Enthalten: native Rhino-Optionen-Seite, Aktivieren/Deaktivieren einzelner Aktionen, Reihenfolge je Objekttyp, Position Maus/Geometrie, Favoriten und aufklappbares „Mehr …“-Menü.
 
-## Online bauen
-Den Inhalt dieses Ordners in die oberste Ebene des GitHub-Repositorys hochladen. Unter Actions `Rhino Context Assist bauen` starten und anschließend das Artefakt `RhinoContextAssist-0.2.1` herunterladen.
+## Einstellungen
+Rhino-Befehl `ContextAssistOptionen` oder `Optionen > Context Assist`.
+
+- Hauptanzahl 1 bis 5. Übrige aktive Aktionen landen unter „Mehr …“.
+- Favoriten werden mit ★ markiert und vor Nicht-Favoriten sortiert.
+- Änderungen mit Anwenden/OK übernehmen.
+- Position „Geometrie“ verwendet den Mittelpunkt der Auswahl und projiziert ihn in den aktiven Viewport.
+
+## Build
+Ordnerinhalt in die Repository-Wurzel hochladen, GitHub Actions ausführen und Artefakt `RhinoContextAssist-0.3` herunterladen.
