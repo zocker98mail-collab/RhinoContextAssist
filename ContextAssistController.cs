@@ -8,14 +8,17 @@ internal sealed class ContextAssistController : IDisposable
 {
     private readonly UITimer _timer;
     private ContextToolbarForm? _form;
+    private DateTime _refreshDue = DateTime.MaxValue;
+    private string _lastSignature = string.Empty;
     private bool _started;
+    private bool _executingOwnAction;
 
     public bool Enabled { get; set; } = true;
 
     public ContextAssistController()
     {
-        _timer = new UITimer { Interval = 0.16 };
-        _timer.Elapsed += (_, _) => RefreshNow();
+        _timer = new UITimer { Interval = 0.10 };
+        _timer.Elapsed += (_, _) => Tick();
     }
 
     public void Start()
@@ -26,49 +29,77 @@ internal sealed class ContextAssistController : IDisposable
         RhinoDoc.DeselectObjects += OnSelectionChanged;
         RhinoDoc.DeselectAllObjects += OnSelectionCleared;
         RhinoDoc.CloseDocument += OnDocumentClosed;
+        RhinoDoc.ActiveDocumentChanged += OnActiveDocumentChanged;
+        RhinoApp.EscapeKeyPressed += OnEscape;
+        _timer.Start();
     }
 
     private void OnSelectionChanged(object? sender, RhinoObjectSelectionEventArgs e) => ScheduleRefresh();
     private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e) => Hide();
     private void OnDocumentClosed(object? sender, DocumentEventArgs e) => Hide();
+    private void OnActiveDocumentChanged(object? sender, DocumentEventArgs e) => Hide();
+    private void OnEscape(object? sender, EventArgs e) => Hide();
 
     private void ScheduleRefresh()
     {
-        if (!Enabled || RhinoDoc.ActiveDoc is null) return;
-        _timer.Stop();
-        _timer.Start();
+        if (Enabled) _refreshDue = DateTime.UtcNow.AddMilliseconds(160);
+    }
+
+    private void Tick()
+    {
+        if (!Enabled) { Hide(); return; }
+        var doc = RhinoDoc.ActiveDoc;
+        if (doc is null) { Hide(); return; }
+
+        // Toolbar während laufender Rhino-Befehle, Punktabfragen und Transformationen ausblenden.
+        if (!_executingOwnAction && (doc.IsCommandRunning || doc.InGetPoint))
+        {
+            Hide();
+            return;
+        }
+
+        if (DateTime.UtcNow < _refreshDue) return;
+        if (_refreshDue == DateTime.MaxValue) return;
+        _refreshDue = DateTime.MaxValue;
+        RefreshNow();
     }
 
     public void RefreshNow()
     {
-        _timer.Stop();
         if (!Enabled) { Hide(); return; }
-
         var doc = RhinoDoc.ActiveDoc;
-        if (doc is null || doc.IsCommandRunning) { Hide(); return; }
+        if (doc is null || doc.IsCommandRunning || doc.InGetPoint) { Hide(); return; }
 
         var context = SelectionAnalyzer.Analyze(doc);
         if (context.Kind == SelectionKind.None) { Hide(); return; }
-
         var actions = ActionResolver.Resolve(context).Take(5).ToList();
         if (actions.Count == 0) { Hide(); return; }
 
-        Hide();
-        _form = new ContextToolbarForm(context, actions, ExecuteAction);
-        _form.ShowNearMouse(doc);
+        _form ??= new ContextToolbarForm(ExecuteAction, Hide);
+        if (_lastSignature != context.Signature || !_form.Visible)
+        {
+            _form.UpdateActions(context, actions);
+            _lastSignature = context.Signature;
+        }
+        _form.ShowSafelyNearMouse();
     }
 
     private void ExecuteAction(ContextAction action)
     {
         Hide();
-        RhinoApp.InvokeOnUiThread((Action)(() => RhinoApp.RunScript(action.Macro, false)));
+        _executingOwnAction = true;
+        RhinoApp.InvokeOnUiThread((Action)(() =>
+        {
+            try { RhinoApp.RunScript(action.Macro, false); }
+            finally { _executingOwnAction = false; }
+        }));
     }
 
     public void Hide()
     {
-        if (_form is null) return;
-        try { _form.Close(); } catch { /* ignore shutdown race */ }
-        _form = null;
+        _refreshDue = DateTime.MaxValue;
+        _lastSignature = string.Empty;
+        if (_form?.Visible == true) _form.Hide();
     }
 
     public void Dispose()
@@ -80,7 +111,13 @@ internal sealed class ContextAssistController : IDisposable
             RhinoDoc.DeselectObjects -= OnSelectionChanged;
             RhinoDoc.DeselectAllObjects -= OnSelectionCleared;
             RhinoDoc.CloseDocument -= OnDocumentClosed;
+            RhinoDoc.ActiveDocumentChanged -= OnActiveDocumentChanged;
+            RhinoApp.EscapeKeyPressed -= OnEscape;
         }
-        Hide();
+        if (_form is not null)
+        {
+            try { _form.Close(); } catch { }
+            _form = null;
+        }
     }
 }

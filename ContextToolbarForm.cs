@@ -1,14 +1,20 @@
 using Eto.Drawing;
 using Eto.Forms;
-using Rhino;
 using Rhino.UI;
 
 namespace RhinoContextAssist;
 
 internal sealed class ContextToolbarForm : Form
 {
-    public ContextToolbarForm(SelectionContext context, IReadOnlyList<ContextAction> actions, Action<ContextAction> execute)
+    private readonly Label _caption;
+    private readonly StackLayout _buttons;
+    private readonly Action<ContextAction> _execute;
+    private readonly Action _dismiss;
+
+    public ContextToolbarForm(Action<ContextAction> execute, Action dismiss)
     {
+        _execute = execute;
+        _dismiss = dismiss;
         Title = "Context Assist";
         ShowInTaskbar = false;
         Topmost = true;
@@ -17,33 +23,41 @@ internal sealed class ContextToolbarForm : Form
         Padding = 7;
         this.UseRhinoStyle();
 
-        var buttons = new StackLayout { Orientation = Orientation.Horizontal, Spacing = 4 };
+        _caption = new Label();
+        _buttons = new StackLayout { Orientation = Orientation.Horizontal, Spacing = 4 };
+        Content = new StackLayout { Spacing = 4, Items = { _caption, _buttons } };
+    }
+
+    public void UpdateActions(SelectionContext context, IReadOnlyList<ContextAction> actions)
+    {
+        _caption.Text = context.Caption;
+        _buttons.Items.Clear();
         foreach (var action in actions)
         {
             var button = new Button { Text = action.Label, ToolTip = action.Hint, Height = 28 };
-            button.Click += (_, _) => execute(action);
-            buttons.Items.Add(button);
+            button.Click += (_, _) => _execute(action);
+            _buttons.Items.Add(button);
         }
-
-        var close = new Button { Text = "x", ToolTip = "Ausblenden", Width = 30, Height = 28 };
-        close.Click += (_, _) => Close();
-        buttons.Items.Add(close);
-
-        Content = new StackLayout
-        {
-            Spacing = 4,
-            Items =
-            {
-                new Label { Text = context.Caption },
-                buttons
-            }
-        };
+        var close = new Button { Text = "×", ToolTip = "Ausblenden", Width = 30, Height = 28 };
+        close.Click += (_, _) => _dismiss();
+        _buttons.Items.Add(close);
     }
 
-    public void ShowNearMouse(RhinoDoc doc)
+    public void ShowSafelyNearMouse()
     {
-        var p = Mouse.Position;
-        Location = new Point((int)p.X + 14, (int)p.Y + 18);
-        Show();
+        var mouse = Mouse.Position;
+        Location = new Point((int)mouse.X + 14, (int)mouse.Y + 18);
+        if (!Visible) Show();
+
+        // Nach dem Anzeigen ist die tatsächliche Fenstergröße bekannt.
+        var screen = Screen.FromPoint(mouse);
+        var work = screen.WorkingArea;
+        var x = Location.X;
+        var y = Location.Y;
+        if (x + Width > work.Right) x = Math.Max(work.Left, work.Right - Width);
+        if (y + Height > work.Bottom) y = Math.Max(work.Top, work.Bottom - Height);
+        if (x < work.Left) x = work.Left;
+        if (y < work.Top) y = work.Top;
+        Location = new Point(x, y);
     }
 }

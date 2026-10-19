@@ -10,7 +10,10 @@ internal enum SelectionKind
     Brep, SolidBrep, BrepFace, PlanarBrepFace, BrepEdge, Mesh, SubD
 }
 
-internal sealed record SelectionContext(SelectionKind Kind, int Count, string Caption);
+internal sealed record SelectionContext(SelectionKind Kind, int Count, string Caption)
+{
+    public string Signature => $"{Kind}:{Count}:{Caption}";
+}
 
 internal static class SelectionAnalyzer
 {
@@ -28,17 +31,16 @@ internal static class SelectionAnalyzer
             if (sub is { Length: > 0 })
             {
                 var first = sub[0];
-                if (first.ComponentIndexType == ComponentIndexType.BrepFace && obj.Geometry is Brep brep)
+                if (first.ComponentIndexType == ComponentIndexType.BrepFace && obj.Geometry is Brep brep && first.Index >= 0 && first.Index < brep.Faces.Count)
                 {
                     var face = brep.Faces[first.Index];
                     return face.TryGetPlane(out _)
-                        ? new(SelectionKind.PlanarBrepFace, 1, "Planare Flaeche")
-                        : new(SelectionKind.BrepFace, 1, "Brep-Flaeche");
+                        ? new(SelectionKind.PlanarBrepFace, 1, "Planare Teilfläche")
+                        : new(SelectionKind.BrepFace, 1, "Teilfläche");
                 }
                 if (first.ComponentIndexType == ComponentIndexType.BrepEdge)
                     return new(SelectionKind.BrepEdge, 1, "Brep-Kante");
             }
-
             return AnalyzeObject(obj);
         }
 
@@ -50,30 +52,19 @@ internal static class SelectionAnalyzer
 
     private static SelectionContext AnalyzeObject(RhinoObject obj)
     {
-        switch (obj.Geometry)
+        return obj.Geometry switch
         {
-            case Curve c:
-                return c.IsClosed && c.IsPlanar()
-                    ? new(SelectionKind.ClosedPlanarCurve, 1, "Geschlossene planare Kurve")
-                    : new(SelectionKind.Curve, 1, "Kurve");
-            case Brep b:
-                if (b.Faces.Count == 1)
-                    return b.Faces[0].TryGetPlane(out _)
-                        ? new(SelectionKind.PlanarSurface, 1, "Planare Flaeche")
-                        : new(SelectionKind.Surface, 1, "Flaeche");
-                return b.IsSolid
-                    ? new(SelectionKind.SolidBrep, 1, "Geschlossener Brep")
-                    : new(SelectionKind.Brep, 1, "Brep");
-            case Extrusion e:
-                return e.IsSolid
-                    ? new(SelectionKind.SolidBrep, 1, "Geschlossene Extrusion")
-                    : new(SelectionKind.Surface, 1, "Extrusion");
-            case Mesh:
-                return new(SelectionKind.Mesh, 1, "Mesh");
-            case SubD:
-                return new(SelectionKind.SubD, 1, "SubD");
-            default:
-                return new(SelectionKind.Multiple, 1, obj.ObjectType.ToString());
-        }
+            Curve c when c.IsClosed && c.IsPlanar() => new(SelectionKind.ClosedPlanarCurve, 1, "Geschlossene planare Kurve"),
+            Curve => new(SelectionKind.Curve, 1, "Kurve"),
+            Brep b when b.Faces.Count == 1 && b.Faces[0].TryGetPlane(out _) => new(SelectionKind.PlanarSurface, 1, "Planare Fläche"),
+            Brep b when b.Faces.Count == 1 => new(SelectionKind.Surface, 1, "Fläche"),
+            Brep b when b.IsSolid => new(SelectionKind.SolidBrep, 1, "Geschlossener Körper"),
+            Brep => new(SelectionKind.Brep, 1, "Flächenverband"),
+            Extrusion e when e.IsSolid => new(SelectionKind.SolidBrep, 1, "Geschlossene Extrusion"),
+            Extrusion => new(SelectionKind.Surface, 1, "Extrusion"),
+            Mesh => new(SelectionKind.Mesh, 1, "Mesh"),
+            SubD => new(SelectionKind.SubD, 1, "SubD"),
+            _ => new(SelectionKind.Multiple, 1, obj.ObjectType.ToString())
+        };
     }
 }

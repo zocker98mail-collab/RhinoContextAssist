@@ -1,45 +1,28 @@
-# Rhino Context Assist - Testversion 0.1
+# Rhino Context Assist 0.2
 
-Automatisch erscheinende, dynamische Mini-Toolbar fuer Rhino 8. Nach einer Auswahl wartet das Plug-in 160 ms, analysiert Objekt oder Brep-Unterobjekt und zeigt passende Rhino-Befehle nahe dem Mauszeiger.
+## Änderungen
+- Vollständig deutsche Beschriftungen und Tooltips, interne Rhino-Makros bleiben sprachunabhängig englisch mit `_`.
+- Popup bleibt innerhalb des Arbeitsbereichs des aktuellen Monitors.
+- Ein einziges Popup wird wiederverwendet; weniger Flackern und keine ständig neuen Fenster.
+- Automatisches Ausblenden bei Abwahl, Escape, Dokumentwechsel, Dokumentende und laufenden Rhino-Befehlen/Punktabfragen.
+- Befehlsliste auf sinnvolle, üblicherweise mit Vorauswahl verwendbare Befehle reduziert. `Inset` und `Shell` wurden vorerst entfernt, weil das Verhalten je nach Auswahlkontext uneinheitlich ist.
+- Deutsche Steuerbefehle: `ContextAssistAn`, `ContextAssistAus`, `ContextAssistUmschalten`.
+- GitHub-Actions-Workflow ist enthalten.
 
-## Voraussetzungen
-- Rhino 8
-- Windows 10/11 oder macOS (Eto UI; getestet werden muss auf dem Zielsystem)
-- .NET 7 SDK zum Bauen
-- Internetzugang beim ersten Build fuer das RhinoCommon-NuGet-Paket
+## Online kompilieren
+1. Den Inhalt dieses Ordners in die oberste Ebene eines GitHub-Repositorys hochladen.
+2. Unter Actions den Workflow `Rhino Context Assist bauen` öffnen.
+3. `Run workflow` klicken oder durch einen Commit automatisch starten lassen.
+4. Nach erfolgreichem Build das Artefakt `RhinoContextAssist-0.2` herunterladen.
+5. ZIP entpacken und `RhinoContextAssist.rhp` per Drag-and-drop oder über `PluginManager` in Rhino 8 installieren.
 
-## Bauen
-1. Terminal im Projektordner oeffnen.
-2. `dotnet restore`
-3. `dotnet build -c Release`
-4. Ergebnis: `bin/Release/net7.0/RhinoContextAssist.rhp`
+## Testfälle
+- Geschlossene planare Kurve: Kurve extrudieren, Fläche erzeugen, Kurve versetzen, Schraffieren.
+- Planare Einzelfläche: Drücken/Ziehen, Fläche extrudieren, Fläche versetzen, Rand duplizieren.
+- Strg+Umschalt auf Brep-Fläche: Drücken/Ziehen, Fläche verschieben, Fläche lösen, Rand duplizieren.
+- Strg+Umschalt auf Brep-Kante: Kante abrunden, Kante fasen, Kante duplizieren.
+- Escape, Abwahl und Start eines Rhino-Befehls blenden das Popup aus.
+- Auswahl nahe allen Bildschirmrändern und auf einem zweiten Monitor testen.
 
-Alternativ in Visual Studio 2022 die `.csproj` oeffnen und Release bauen.
-
-## Installieren / Testladen
-1. Rhino 8 starten.
-2. Befehl `PluginManager` ausfuehren.
-3. `Installieren...` waehlen.
-4. `RhinoContextAssist.rhp` aus `bin/Release/net7.0` waehlen.
-5. Rhino neu starten, falls verlangt.
-
-Schneller Entwicklertest: Die `.rhp`-Datei per Drag-and-drop in Rhino ziehen.
-
-## Befehle
-- `ContextAssistOn`
-- `ContextAssistOff`
-- `ContextAssistToggle`
-
-## Test
-- Geschlossene planare Kurve waehlen: ExtrudeCrv, PlanarSrf, Offset, Hatch.
-- Einzelflaeche waehlen: PushPull/ExtrudeSrf, OffsetSrf, DupBorder.
-- Mit Strg+Umschalt eine Brep-Flaeche waehlen: PushPull, MoveFace, Inset, ExtractSrf, DupBorder.
-- Mit Strg+Umschalt eine Brep-Kante waehlen: FilletEdge, ChamferEdge, DupEdge.
-- Geschlossenen Koerper waehlen: Shell, Boolesche Befehle, Cap.
-
-## Bekannte Grenzen der Testversion
-- Die Aktionen starten native Rhino-Befehle; einige verlangen weitere Eingaben.
-- `Inset` ist je nach Geometrietyp/Rhino-Befehlskontext eventuell nicht anwendbar.
-- Das Popup sitzt beim Mauszeiger, nicht geometrisch am 3D-Selektionspunkt.
-- Bei Mehrfachauswahl werden allgemeine Aktionen angeboten.
-- Persistente Einstellungen, Favoriten, Icons, Nutzungsstatistik und Yak-Paket folgen erst in einer spaeteren Version.
+## Hinweis zur Befehlsausführung
+Die sichtbaren Namen sind deutsch. Die Makros bleiben absichtlich `_PushPull`, `_Offset` usw. Der führende Unterstrich weist Rhino an, den internationalen englischen Befehlsnamen zu verwenden. Dadurch funktioniert das Plugin auch mit einer deutschen Rhino-Oberfläche.

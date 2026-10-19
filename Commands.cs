@@ -3,9 +3,9 @@ using Rhino.Commands;
 
 namespace RhinoContextAssist;
 
-public sealed class ContextAssistOnCommand : Command
+public sealed class ContextAssistAnCommand : Command
 {
-    public override string EnglishName => "ContextAssistOn";
+    public override string EnglishName => "ContextAssistAn";
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
     {
         var c = ContextAssistPlugIn.Instance?.Controller;
@@ -17,9 +17,9 @@ public sealed class ContextAssistOnCommand : Command
     }
 }
 
-public sealed class ContextAssistOffCommand : Command
+public sealed class ContextAssistAusCommand : Command
 {
-    public override string EnglishName => "ContextAssistOff";
+    public override string EnglishName => "ContextAssistAus";
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
     {
         var c = ContextAssistPlugIn.Instance?.Controller;
@@ -31,9 +31,9 @@ public sealed class ContextAssistOffCommand : Command
     }
 }
 
-public sealed class ContextAssistToggleCommand : Command
+public sealed class ContextAssistUmschaltenCommand : Command
 {
-    public override string EnglishName => "ContextAssistToggle";
+    public override string EnglishName => "ContextAssistUmschalten";
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
     {
         var c = ContextAssistPlugIn.Instance?.Controller;
