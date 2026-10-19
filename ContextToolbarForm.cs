@@ -1,67 +1,7 @@
-using Eto.Drawing;
-using Eto.Forms;
-using Rhino.UI;
-
+using Eto.Drawing; using Eto.Forms; using Rhino.UI;
 namespace RhinoContextAssist;
-
-internal sealed class ContextToolbarForm : Form
-{
-    private readonly Label _caption;
-    private readonly StackLayout _buttons;
-    private readonly Action<ContextAction> _execute;
-    private readonly Action _dismiss;
-
-    public ContextToolbarForm(Action<ContextAction> execute, Action dismiss)
-    {
-        _execute = execute;
-        _dismiss = dismiss;
-        Title = "Context Assist";
-        ShowInTaskbar = false;
-        Topmost = true;
-        Resizable = false;
-        WindowStyle = WindowStyle.None;
-        Padding = 7;
-        this.UseRhinoStyle();
-
-        _caption = new Label();
-        _buttons = new StackLayout { Orientation = Orientation.Horizontal, Spacing = 4 };
-        Content = new StackLayout { Spacing = 4, Items = { _caption, _buttons } };
-    }
-
-    public void UpdateActions(SelectionContext context, IReadOnlyList<ContextAction> actions)
-    {
-        _caption.Text = context.Caption;
-        _buttons.Items.Clear();
-        foreach (var action in actions)
-        {
-            var button = new Button { Text = action.Label, ToolTip = action.Hint, Height = 28 };
-            button.Click += (_, _) => _execute(action);
-            _buttons.Items.Add(button);
-        }
-        var close = new Button { Text = "×", ToolTip = "Ausblenden", Width = 30, Height = 28 };
-        close.Click += (_, _) => _dismiss();
-        _buttons.Items.Add(close);
-    }
-
-    public void ShowSafelyNearMouse()
-    {
-        var mouse = Mouse.Position;
-        Location = new Point((int)mouse.X + 14, (int)mouse.Y + 18);
-        if (!Visible) Show();
-
-        // Nach dem Anzeigen ist die tatsächliche Fenstergröße bekannt.
-        var screen = Screen.FromPoint(mouse);
-        var work = screen.WorkingArea;
-        var left = (int)work.Left;
-        var top = (int)work.Top;
-        var right = (int)work.Right;
-        var bottom = (int)work.Bottom;
-        var x = Location.X;
-        var y = Location.Y;
-        if (x + Width > right) x = Math.Max(left, right - Width);
-        if (y + Height > bottom) y = Math.Max(top, bottom - Height);
-        if (x < left) x = left;
-        if (y < top) y = top;
-        Location = new Point(x, y);
-    }
-}
+internal sealed class ContextToolbarForm:Form{
+ readonly Label caption=new(); readonly StackLayout buttons=new(){Orientation=Orientation.Horizontal,Spacing=4}; readonly Action<ContextAction> execute; readonly Action dismiss;
+ public ContextToolbarForm(Action<ContextAction> e,Action d){execute=e;dismiss=d;Title="Context Assist";ShowInTaskbar=false;ShowActivated=false;Topmost=true;Resizable=false;WindowStyle=WindowStyle.None;Padding=7;this.UseRhinoStyle();Content=new StackLayout{Spacing=4,Items={caption,buttons}};}
+ public void UpdateActions(SelectionContext c,IReadOnlyList<ContextAction>a){caption.Text=c.Caption;buttons.Items.Clear();foreach(var x in a){var b=new Button{Text=x.Label,ToolTip=x.Hint,Height=28};b.Click+=(_,_)=>execute(x);buttons.Items.Add(b);}var close=new Button{Text="×",ToolTip="Ausblenden",Width=30,Height=28};close.Click+=(_,_)=>dismiss();buttons.Items.Add(close);}
+ public void ShowSafelyNearMouse(){var m=Mouse.Position;Location=new Point((int)m.X+14,(int)m.Y+18);if(!Visible)Show();var w=Screen.FromPoint(m).WorkingArea;var l=(int)w.Left;var t=(int)w.Top;var r=(int)w.Right;var bot=(int)w.Bottom;var x=Location.X;var y=Location.Y;if(x+Width>r)x=Math.Max(l,r-Width);if(y+Height>bot)y=Math.Max(t,bot-Height);if(x<l)x=l;if(y<t)y=t;Location=new Point(x,y);}}

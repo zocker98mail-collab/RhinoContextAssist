@@ -1,14 +1,2 @@
-using System.Reflection;
-using System.Runtime.InteropServices;
-using Rhino.PlugIns;
-
-[assembly: AssemblyTitle("Rhino Context Assist")]
-[assembly: AssemblyDescription("Dynamische kontextabhängige Mini-Toolbar für Rhino 8")]
-[assembly: AssemblyCompany("Prototype")]
-[assembly: AssemblyProduct("Rhino Context Assist")]
-[assembly: AssemblyVersion("0.2.0.0")]
-[assembly: AssemblyFileVersion("0.2.0.0")]
-[assembly: ComVisible(false)]
-[assembly: Guid("9bdf34af-0a7a-4a67-8067-7934e0f28dcc")]
-[assembly: PlugInDescription(DescriptionType.Country, "Germany")]
-[assembly: PlugInDescription(DescriptionType.Organization, "Prototype")]
+using System.Reflection; using System.Runtime.InteropServices; using Rhino.PlugIns;
+[assembly: AssemblyTitle("Rhino Context Assist")][assembly: AssemblyDescription("Dynamische kontextabhängige Mini-Toolbar für Rhino 8")][assembly: AssemblyCompany("Prototype")][assembly: AssemblyProduct("Rhino Context Assist")][assembly: AssemblyVersion("0.2.1.0")][assembly: AssemblyFileVersion("0.2.1.0")][assembly: ComVisible(false)][assembly: Guid("9bdf34af-0a7a-4a67-8067-7934e0f28dcc")][assembly: PlugInDescription(DescriptionType.Country,"Germany")][assembly: PlugInDescription(DescriptionType.Organization,"Prototype")]
