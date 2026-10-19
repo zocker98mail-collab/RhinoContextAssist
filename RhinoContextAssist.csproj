@@ -1,1 +1,21 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net7.0</TargetFramework><OutputType>Library</OutputType><EnableDynamicLoading>true</EnableDynamicLoading><TargetExt>.rhp</TargetExt><GenerateAssemblyInfo>false</GenerateAssemblyInfo><LangVersion>latest</LangVersion><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><AssemblyName>RhinoContextAssist</AssemblyName><RootNamespace>RhinoContextAssist</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" /></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TargetExt>.rhp</TargetExt>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>RhinoContextAssist</AssemblyName>
+    <RootNamespace>RhinoContextAssist</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+
+    <!-- Schutz gegen die alte Datei aus Version 0.2.x. -->
+    <Compile Remove="ActionResolver.cs" />
+  </ItemGroup>
+</Project>
