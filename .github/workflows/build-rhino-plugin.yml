@@ -1,0 +1,44 @@
+name: Build Rhino Plugin
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Quellcode laden
+        uses: actions/checkout@v4
+
+      - name: .NET 7 einrichten
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "7.0.x"
+
+      - name: NuGet-Pakete wiederherstellen
+        run: dotnet restore RhinoContextAssist.csproj
+
+      - name: Rhino-Plugin kompilieren
+        run: dotnet build RhinoContextAssist.csproj --configuration Release --no-restore
+
+      - name: Build-Ergebnis kontrollieren
+        shell: powershell
+        run: |
+          Get-ChildItem -Path bin\Release -Recurse
+          if (-not (Test-Path "bin\Release\net7.0\RhinoContextAssist.rhp")) {
+            throw "RhinoContextAssist.rhp wurde nicht erzeugt."
+          }
+
+      - name: RHP als Download bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: RhinoContextAssist-RHP
+          path: |
+            bin/Release/net7.0/RhinoContextAssist.rhp
+            bin/Release/net7.0/RhinoContextAssist.deps.json
+            bin/Release/net7.0/RhinoContextAssist.pdb
+          if-no-files-found: error
