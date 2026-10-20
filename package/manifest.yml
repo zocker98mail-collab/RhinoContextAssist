@@ -1,0 +1,17 @@
+name: RhinoContextAssist
+version: 1.0.0
+authors:
+  - Marcel Draeger
+description: >
+  Dynamische kontextabhängige Mini-Toolbar für Rhino 8. Erkennt Brep-, Extrusions-,
+  Mesh- und SubD-Auswahlen einschließlich Unterobjekten. Unterstützt Favoriten,
+  Nutzungsstatistik, automatische Priorisierung, deutsche Beschriftungen und
+  frei konfigurierbare Aktionen.
+url: "https://github.com/OWNER/RhinoContextAssist"
+keywords:
+  - context-menu
+  - productivity
+  - modeling
+  - mesh
+  - subd
+  - german
