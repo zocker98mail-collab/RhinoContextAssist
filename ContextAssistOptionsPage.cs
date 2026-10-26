@@ -1,18 +1,246 @@
-using Eto.Forms;using Rhino.UI;
+using Eto.Forms;
+using Rhino.UI;
+
 namespace RhinoContextAssist;
-internal sealed class ContextAssistOptionsPage:OptionsDialogPage{readonly ContextAssistSettings s;ContextAssistOptionsControl? c;public ContextAssistOptionsPage(ContextAssistSettings x):base("Context Assist")=>s=x;public override object PageControl=>c??=new(s);public override bool ShowApplyButton=>true;public override bool OnApply(){c?.ApplySettings();return true;}}
-internal sealed class ContextAssistOptionsControl:Panel{readonly ContextAssistSettings s;readonly DropDown position = new();
- readonly DropDown ux = new();
- readonly DropDown kind = new();
- readonly NumericStepper margin = N(50,250);
- readonly NumericStepper primary = N(1,5);
- readonly ListBox actions = new();
- readonly ListBox custom = new();
- readonly CheckBox enabled = new(){Text="Aktiviert"};
- readonly CheckBox auto = new(){Text="Automatisch priorisieren"};
- public ContextAssistOptionsControl(ContextAssistSettings x){s=x;foreach(var t in new[]{"Neben Mauszeiger","Direkt an Geometrie","Mit Abstand zur Geometrie","Automatisch freie Ecke","Links oben","Rechts oben","Links unten","Rechts unten"})position.Items.Add(t);foreach(var t in new[]{"Direkt","Kompakt","Manuell"})ux.Items.Add(t);foreach(var k in ActionCatalog.Kinds)kind.Items.Add(k.ToString());var add=new Button{Text="Eigene Aktion hinzufügen"};var del=new Button{Text="Eigene Aktion löschen"};var up=new Button{Text="Nach oben"};var down=new Button{Text="Nach unten"};var export=new Button{Text="Konfiguration exportieren"};var import=new Button{Text="Konfiguration importieren"};add.Click+=(_,_)=>AddCustom();del.Click+=(_,_)=>{if(custom.SelectedIndex>=0){s.CustomActions.RemoveAt(custom.SelectedIndex);RefreshCustom();}};kind.SelectedIndexChanged+=(_,_)=>RefreshActions();up.Click+=(_,_)=>Move(-1);down.Click+=(_,_)=>Move(1);export.Click+=(_,_)=>Rhino.RhinoApp.RunScript("_ContextAssistExport",false);import.Click+=(_,_)=>Rhino.RhinoApp.RunScript("_ContextAssistImport",false);var tabs=new TabControl();var ui=new DynamicLayout{Padding=10};ui.AddRow(enabled,auto);ui.AddRow(new Label{Text="Darstellung"},ux);ui.AddRow(new Label{Text="Position"},position);ui.AddRow(new Label{Text="Randabstand Ecke (px)"},margin);ui.AddRow(new Label{Text="Hauptaktionen"},primary);var act=new DynamicLayout{Padding=10};act.AddRow(kind);act.AddRow(actions);act.AddRow(up,down);var own=new DynamicLayout{Padding=10};own.AddRow(custom);own.AddRow(add,del);own.AddRow(export,import);tabs.Pages.Add(new TabPage{Text="Darstellung",Content=ui});tabs.Pages.Add(new TabPage{Text="Aktionen",Content=act});tabs.Pages.Add(new TabPage{Text="Eigene Aktionen",Content=own});Content=tabs;LoadSettingsIntoControls();}
- static NumericStepper N(double a,double b)=>new(){MinValue=a,MaxValue=b,DecimalPlaces=0};void LoadSettingsIntoControls(){enabled.Checked=s.Enabled;auto.Checked=s.AutomaticPrioritization;ux.SelectedIndex=(int)s.UxMode;position.SelectedIndex=(int)s.PositionMode;margin.Value=s.CornerMarginPx;primary.Value=s.PrimaryCount;kind.SelectedIndex=0;RefreshActions();RefreshCustom();}
- void RefreshActions(){actions.Items.Clear();if(kind.SelectedIndex<0)return;var k=ActionCatalog.Kinds[kind.SelectedIndex];foreach(var a in ActionCatalog.Defaults(k))actions.Items.Add($"{a.Icon} {a.Label} [{a.Category}]");}void RefreshCustom(){custom.Items.Clear();foreach(var a in s.CustomActions)custom.Items.Add($"{a.Label} → {a.Requirement}");}
- void Move(int d){if(kind.SelectedIndex<0||actions.SelectedIndex<0)return;var k=ActionCatalog.Kinds[kind.SelectedIndex];var p=s.Preferences[k];var i=actions.SelectedIndex,j=i+d;if(j<0||j>=p.Count)return;(p[i],p[j])=(p[j],p[i]);RefreshActions();actions.SelectedIndex=j;}
- void AddCustom(){var dlg=new Dialog<bool>{Title="Eigene Aktion",Size=new Eto.Drawing.Size(440,330)};var name=new TextBox(),macro=new TextBox(),icon=new TextBox{Text="•"},cat=new TextBox{Text="Eigene"};var type=new DropDown();foreach(var k in ActionCatalog.Kinds)type.Items.Add(k.ToString());type.SelectedIndex=0;var destructive=new CheckBox{Text="Destruktive Aktion"};var ok=new Button{Text="Hinzufügen"};ok.Click+=(_,_)=>{if(string.IsNullOrWhiteSpace(name.Text)||string.IsNullOrWhiteSpace(macro.Text))return;s.CustomActions.Add(new ContextAction("custom_"+Guid.NewGuid().ToString("N"),icon.Text,name.Text,macro.Text,name.Text,cat.Text,destructive.Checked==true,type.SelectedValue?.ToString()??"Any",true));s.Save();dlg.Close(true);};var l=new DynamicLayout{Padding=10};l.AddRow("Name",name);l.AddRow("Makro",macro);l.AddRow("Icon",icon);l.AddRow("Kategorie",cat);l.AddRow("Objekttyp",type);l.AddRow(destructive);l.AddRow(ok);dlg.Content=l;dlg.ShowModal(this);RefreshCustom();}
- public void ApplySettings(){s.Enabled=enabled.Checked==true;s.AutomaticPrioritization=auto.Checked==true;s.UxMode=(PopupUxMode)Math.Max(0,ux.SelectedIndex);s.PositionMode=(PopupPositionMode)Math.Max(0,position.SelectedIndex);s.CornerMarginPx=(int)margin.Value;s.PrimaryCount=(int)primary.Value;s.Save();}}
+
+internal sealed class ContextAssistOptionsPage : OptionsDialogPage
+{
+    private readonly ContextAssistSettings _settings;
+    private ContextAssistOptionsControl? _control;
+
+    public ContextAssistOptionsPage(ContextAssistSettings settings)
+        : base("Context Assist")
+    {
+        _settings = settings;
+    }
+
+    public override object PageControl =>
+        _control ??= new ContextAssistOptionsControl(_settings);
+
+    public override bool ShowApplyButton => true;
+
+    public override bool OnApply()
+    {
+        _control?.ApplySettings();
+        return true;
+    }
+}
+
+internal sealed class ContextAssistOptionsControl : Panel
+{
+    private readonly ContextAssistSettings _settings;
+    private readonly DropDown _position = new();
+    private readonly DropDown _uxMode = new();
+    private readonly DropDown _selectionKind = new();
+    private readonly NumericStepper _cornerMargin = CreateNumber(50, 250);
+    private readonly NumericStepper _primaryCount = CreateNumber(1, 5);
+    private readonly ListBox _actions = new();
+    private readonly ListBox _customActions = new();
+    private readonly CheckBox _enabled = new() { Text = "Aktiviert" };
+    private readonly CheckBox _automaticPriority = new() { Text = "Automatisch priorisieren" };
+
+    public ContextAssistOptionsControl(ContextAssistSettings settings)
+    {
+        _settings = settings;
+
+        foreach (var text in new[]
+        {
+            "Neben Mauszeiger",
+            "Direkt an Geometrie",
+            "Mit Abstand zur Geometrie",
+            "Automatisch freie Ecke",
+            "Links oben",
+            "Rechts oben",
+            "Links unten",
+            "Rechts unten"
+        })
+        {
+            _position.Items.Add(text);
+        }
+
+        foreach (var text in new[] { "Direkt", "Kompakt", "Manuell" })
+            _uxMode.Items.Add(text);
+
+        foreach (var kind in ActionCatalog.Kinds)
+            _selectionKind.Items.Add(kind.ToString());
+
+        var addActionButton = new Button { Text = "Eigene Aktion hinzufügen" };
+        var deleteActionButton = new Button { Text = "Eigene Aktion löschen" };
+        var moveUpButton = new Button { Text = "Nach oben" };
+        var moveDownButton = new Button { Text = "Nach unten" };
+        var exportButton = new Button { Text = "Konfiguration exportieren" };
+        var importButton = new Button { Text = "Konfiguration importieren" };
+
+        addActionButton.Click += (_, _) => AddCustomAction();
+        deleteActionButton.Click += (_, _) => DeleteSelectedCustomAction();
+        moveUpButton.Click += (_, _) => MoveSelectedAction(-1);
+        moveDownButton.Click += (_, _) => MoveSelectedAction(1);
+        exportButton.Click += (_, _) => Rhino.RhinoApp.RunScript("_ContextAssistExport", false);
+        importButton.Click += (_, _) => Rhino.RhinoApp.RunScript("_ContextAssistImport", false);
+        _selectionKind.SelectedIndexChanged += (_, _) => RefreshActions();
+
+        var displayLayout = new DynamicLayout { Padding = 10 };
+        displayLayout.AddRow(_enabled, _automaticPriority);
+        displayLayout.AddRow(new Label { Text = "Darstellung" }, _uxMode);
+        displayLayout.AddRow(new Label { Text = "Position" }, _position);
+        displayLayout.AddRow(new Label { Text = "Randabstand Ecke (px)" }, _cornerMargin);
+        displayLayout.AddRow(new Label { Text = "Hauptaktionen" }, _primaryCount);
+
+        var actionsLayout = new DynamicLayout { Padding = 10 };
+        actionsLayout.AddRow(_selectionKind);
+        actionsLayout.AddRow(_actions);
+        actionsLayout.AddRow(moveUpButton, moveDownButton);
+
+        var customLayout = new DynamicLayout { Padding = 10 };
+        customLayout.AddRow(_customActions);
+        customLayout.AddRow(addActionButton, deleteActionButton);
+        customLayout.AddRow(exportButton, importButton);
+
+        var tabs = new TabControl();
+        tabs.Pages.Add(new TabPage { Text = "Darstellung", Content = displayLayout });
+        tabs.Pages.Add(new TabPage { Text = "Aktionen", Content = actionsLayout });
+        tabs.Pages.Add(new TabPage { Text = "Eigene Aktionen", Content = customLayout });
+        Content = tabs;
+
+        LoadSettingsIntoControls();
+    }
+
+    private static NumericStepper CreateNumber(double min, double max) => new()
+    {
+        MinValue = min,
+        MaxValue = max,
+        DecimalPlaces = 0
+    };
+
+    private void LoadSettingsIntoControls()
+    {
+        _enabled.Checked = _settings.Enabled;
+        _automaticPriority.Checked = _settings.AutomaticPrioritization;
+        _uxMode.SelectedIndex = (int)_settings.UxMode;
+        _position.SelectedIndex = (int)_settings.PositionMode;
+        _cornerMargin.Value = _settings.CornerMarginPx;
+        _primaryCount.Value = _settings.PrimaryCount;
+        _selectionKind.SelectedIndex = 0;
+        RefreshActions();
+        RefreshCustomActions();
+    }
+
+    private void RefreshActions()
+    {
+        _actions.Items.Clear();
+        if (_selectionKind.SelectedIndex < 0)
+            return;
+
+        var kind = ActionCatalog.Kinds[_selectionKind.SelectedIndex];
+        foreach (var action in ActionCatalog.Defaults(kind))
+            _actions.Items.Add($"{action.Icon} {action.Label} [{action.Category}]");
+    }
+
+    private void RefreshCustomActions()
+    {
+        _customActions.Items.Clear();
+        foreach (var action in _settings.CustomActions)
+            _customActions.Items.Add($"{action.Label} → {action.Requirement}");
+    }
+
+    private void DeleteSelectedCustomAction()
+    {
+        if (_customActions.SelectedIndex < 0)
+            return;
+
+        _settings.CustomActions.RemoveAt(_customActions.SelectedIndex);
+        _settings.Save();
+        RefreshCustomActions();
+    }
+
+    private void MoveSelectedAction(int direction)
+    {
+        if (_selectionKind.SelectedIndex < 0 || _actions.SelectedIndex < 0)
+            return;
+
+        var kind = ActionCatalog.Kinds[_selectionKind.SelectedIndex];
+        var preferences = _settings.Preferences[kind];
+        var currentIndex = _actions.SelectedIndex;
+        var targetIndex = currentIndex + direction;
+
+        if (targetIndex < 0 || targetIndex >= preferences.Count)
+            return;
+
+        (preferences[currentIndex], preferences[targetIndex]) =
+            (preferences[targetIndex], preferences[currentIndex]);
+
+        _settings.Save();
+        RefreshActions();
+        _actions.SelectedIndex = targetIndex;
+    }
+
+    private void AddCustomAction()
+    {
+        var dialog = new Dialog<bool>
+        {
+            Title = "Eigene Aktion",
+            Size = new Eto.Drawing.Size(440, 330)
+        };
+
+        var nameTextBox = new TextBox();
+        var macroTextBox = new TextBox();
+        var iconTextBox = new TextBox { Text = "•" };
+        var categoryTextBox = new TextBox { Text = "Eigene" };
+        var objectTypeDropDown = new DropDown();
+        var destructiveCheckBox = new CheckBox { Text = "Destruktive Aktion" };
+        var addButton = new Button { Text = "Hinzufügen" };
+
+        foreach (var kind in ActionCatalog.Kinds)
+            objectTypeDropDown.Items.Add(kind.ToString());
+        objectTypeDropDown.SelectedIndex = 0;
+
+        addButton.Click += (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(nameTextBox.Text) ||
+                string.IsNullOrWhiteSpace(macroTextBox.Text))
+            {
+                return;
+            }
+
+            var requirement = objectTypeDropDown.SelectedValue?.ToString() ?? "Any";
+            var action = new ContextAction(
+                "custom_" + Guid.NewGuid().ToString("N"),
+                iconTextBox.Text,
+                nameTextBox.Text,
+                macroTextBox.Text,
+                nameTextBox.Text,
+                categoryTextBox.Text,
+                destructiveCheckBox.Checked == true,
+                requirement,
+                true);
+
+            _settings.CustomActions.Add(action);
+            _settings.Save();
+            dialog.Close(true);
+        };
+
+        var layout = new DynamicLayout { Padding = 10 };
+        layout.AddRow(new Label { Text = "Name" }, nameTextBox);
+        layout.AddRow(new Label { Text = "Makro" }, macroTextBox);
+        layout.AddRow(new Label { Text = "Icon" }, iconTextBox);
+        layout.AddRow(new Label { Text = "Kategorie" }, categoryTextBox);
+        layout.AddRow(new Label { Text = "Objekttyp" }, objectTypeDropDown);
+        layout.AddRow(destructiveCheckBox);
+        layout.AddRow(addButton);
+
+        dialog.Content = layout;
+        dialog.ShowModal(this);
+        RefreshCustomActions();
+    }
+
+    public void ApplySettings()
+    {
+        _settings.Enabled = _enabled.Checked == true;
+        _settings.AutomaticPrioritization = _automaticPriority.Checked == true;
+        _settings.UxMode = (PopupUxMode)Math.Max(0, _uxMode.SelectedIndex);
+        _settings.PositionMode = (PopupPositionMode)Math.Max(0, _position.SelectedIndex);
+        _settings.CornerMarginPx = (int)_cornerMargin.Value;
+        _settings.PrimaryCount = (int)_primaryCount.Value;
+        _settings.Save();
+    }
+}
