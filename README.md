@@ -1,19 +1,13 @@
-# WPF 1.3.3: Mehrfachauswahl + freie Position
+# Rhino Context Assist 1.3.3
 
-## Ersetzen
-- Models.cs
-- SelectionAnalyzer.cs
-- ContextAssistController.cs
+Vollständiges GitHub-Projekt, keine manuellen Patches erforderlich.
 
-## Ergänzen
-- ContextActionPolicy.cs
+## Neu
+- Mehrfachauswahl aus Körpern, Flächenverbänden und Meshes zeigt wieder ein Menü.
+- Linien-Hüllkörper nur für einzelne/mehrere Körper, Flächenverbände und Meshes.
+- Positionen: Maus, direkt an Geometrie, 110 px Abstand, entfernteste Viewport-Ecke.
+- Standardposition für Neuinstallationen: freie Viewport-Ecke.
+- WPF-Popup, Eto-Optionsseite.
 
-## Anwenden
-- PopupPlacement-PATCH.txt auf ContextAssistPopup.xaml.cs
-- OptionsPage-PATCH.txt auf ContextAssistOptionsPage.cs
-
-## Verhalten
-- Einzelne und mehrere Breps, Volumenkörper, Extrusionskörper und Meshes zeigen wieder ein Menü.
-- Mehrfachauswahl ausschließlich aus diesen Typen wird als MultipleEnvelopeObjects erkannt.
-- Linien-Hüllkörper erscheint nur für SolidBrep, Brep, Mesh und MultipleEnvelopeObjects.
-- Neue Positionen: mit 110 px Abstand zur Geometrie oder automatisch in der entferntesten Viewport-Ecke.
+## Upload
+Den Inhalt dieses Ordners in die Repository-Wurzel laden. Alte Dateien vollständig ersetzen und insbesondere `ContextToolbarForm.cs` löschen. Danach GitHub Actions starten.

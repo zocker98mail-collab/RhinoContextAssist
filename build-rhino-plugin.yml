@@ -1,0 +1,20 @@
+name: Rhino Context Assist WPF bauen
+on: { workflow_dispatch: {}, push: { branches: [ main ] } }
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "7.0.x" }
+      - run: dotnet restore RhinoContextAssist.csproj
+      - run: dotnet build RhinoContextAssist.csproj -c Release --no-restore
+      - shell: pwsh
+        run: |
+          $plugin = Join-Path $PWD "bin/Release/net7.0-windows/RhinoContextAssist.rhp"
+          if (-not (Test-Path $plugin)) { throw "RHP fehlt: $plugin" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RhinoContextAssist-WPF-1.3.3
+          path: bin/Release/net7.0-windows/*
+          if-no-files-found: error
