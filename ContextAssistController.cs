@@ -9,7 +9,7 @@ internal sealed class ContextAssistController : IDisposable
 {
     private readonly UITimer _timer;
     private readonly ContextAssistSettings _settings;
-    private ContextToolbarForm? _form;
+    private ContextAssistPopup? _popup;
     private DateTime _refreshDue = DateTime.MaxValue;
     private PointF _selectionMousePosition;
     private bool _started;
@@ -42,9 +42,8 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnSelectionChanged(object? sender, RhinoObjectSelectionEventArgs e)
     {
-        CloseToolbar();
+        ClosePopup();
         _selectionMousePosition = Mouse.Position;
-
         if (Enabled)
             _refreshDue = DateTime.UtcNow.AddMilliseconds(_settings.SelectionDelayMs);
     }
@@ -66,8 +65,7 @@ internal sealed class ContextAssistController : IDisposable
             return;
 
         _refreshDue = DateTime.MaxValue;
-
-        if (_settings.UxMode != PopupUxMode.Manual && !MouseStayedNearSelection())
+        if (!MouseStayedNearSelection())
             return;
 
         RefreshNow();
@@ -102,15 +100,15 @@ internal sealed class ContextAssistController : IDisposable
             return;
         }
 
-        CloseToolbar();
-        var form = new ContextToolbarForm(ExecuteAction, Hide, _settings);
-        form.Closed += (_, _) =>
+        ClosePopup();
+        var popup = new ContextAssistPopup(ExecuteAction, Hide, _settings);
+        popup.Closed += (_, _) =>
         {
-            if (ReferenceEquals(_form, form)) _form = null;
+            if (ReferenceEquals(_popup, popup)) _popup = null;
         };
-        form.UpdateActions(context, actions);
-        _form = form;
-        form.ShowAt(context, _settings.PositionMode);
+        popup.UpdateActions(context, actions);
+        _popup = popup;
+        popup.ShowAt(context, _settings.PositionMode);
     }
 
     private void ExecuteAction(ContextAction action)
@@ -124,15 +122,15 @@ internal sealed class ContextAssistController : IDisposable
     public void Hide()
     {
         _refreshDue = DateTime.MaxValue;
-        CloseToolbar();
+        ClosePopup();
     }
 
-    private void CloseToolbar()
+    private void ClosePopup()
     {
-        var form = _form;
-        _form = null;
-        if (form is null) return;
-        try { form.Close(); form.Dispose(); } catch { }
+        var popup = _popup;
+        _popup = null;
+        if (popup is null) return;
+        try { popup.Close(); } catch { }
     }
 
     public void Dispose()
@@ -147,6 +145,6 @@ internal sealed class ContextAssistController : IDisposable
             RhinoDoc.ActiveDocumentChanged -= OnDocumentClosed;
             RhinoApp.EscapeKeyPressed -= OnEscape;
         }
-        CloseToolbar();
+        ClosePopup();
     }
 }

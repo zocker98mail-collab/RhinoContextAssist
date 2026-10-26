@@ -1,10 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework><OutputType>Library</OutputType>
-    <EnableDynamicLoading>true</EnableDynamicLoading><TargetExt>.rhp</TargetExt>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo><LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>RhinoContextAssist</AssemblyName><RootNamespace>RhinoContextAssist</RootNamespace>
+    <TargetFramework>net7.0-windows</TargetFramework>
+    <OutputType>Library</OutputType>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TargetExt>.rhp</TargetExt>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>RhinoContextAssist</AssemblyName>
+    <RootNamespace>RhinoContextAssist</RootNamespace>
   </PropertyGroup>
-  <ItemGroup><PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" /></ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Die alte Eto-Popup-Datei darf nicht parallel kompiliert werden. -->
+    <Compile Remove="ContextToolbarForm.cs" />
+  </ItemGroup>
 </Project>
