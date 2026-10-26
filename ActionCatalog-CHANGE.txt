@@ -1,0 +1,26 @@
+In ActionCatalog.cs sind exakt diese Änderungen erforderlich:
+
+1. ConfigurableKinds: SelectionKind.MultipleBodies ergänzen.
+2. Box() NUR in diesen Zweigen behalten:
+   - SelectionKind.SolidBrep
+   - SelectionKind.Brep
+   - SelectionKind.MultipleBodies
+3. Box() aus ClosedPlanarCurve, Curve, PlanarSurface, Surface, Mesh, SubD, Block, Multiple und Mixed entfernen.
+4. Neuen Zweig hinzufügen:
+
+SelectionKind.MultipleBodies => new[]
+{
+    A("union", "∪", "Vereinigen", "_BooleanUnion", "Körper vereinigen"),
+    A("join", "⛓", "Verbinden", "_Join", "Flächenverbände verbinden"),
+    Box()
+},
+
+5. Der allgemeine Zweig bleibt ohne Box():
+
+SelectionKind.Multiple or SelectionKind.Mixed => new[]
+{
+    A("group", "▦", "Gruppieren", "_Group", "Objekte gruppieren"),
+    A("align", "≡", "Ausrichten", "_Align", "Objekte ausrichten"),
+    A("union", "∪", "Vereinigen", "_BooleanUnion", "Körper vereinigen"),
+    A("join", "⛓", "Verbinden", "_Join", "Objekte verbinden")
+},
