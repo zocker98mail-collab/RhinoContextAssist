@@ -7,57 +7,35 @@ namespace RhinoContextAssist;
 
 internal sealed class ContextToolbarForm : Form
 {
-    private const double IdleOpacity = 0.42;
-    private const double ActiveOpacity = 1.00;
-    private const double FadeStep = 0.10;
-    private const int HoverDelayMs = 300;
-    private const int CollapseDelayMs = 600;
-    private const int AutoHideMs = 5000;
-
+    private const int WindowPadding = 14;
     private readonly Action<ContextAction> _execute;
     private readonly Action _dismiss;
-    private readonly UITimer _interactionTimer;
+    private readonly ContextAssistSettings _settings;
+    private readonly UITimer _timer;
 
-    private readonly Panel _root = new();
-    private readonly StackLayout _pill = new()
-    {
-        Orientation = Orientation.Horizontal,
-        Spacing = 6
-    };
-    private readonly StackLayout _primary = new()
-    {
-        Orientation = Orientation.Horizontal,
-        Spacing = 4
-    };
-    private readonly StackLayout _more = new()
-    {
-        Orientation = Orientation.Horizontal,
-        Spacing = 4,
-        Visible = false
-    };
-    private readonly StackLayout _expanded = new()
-    {
-        Spacing = 4,
-        Visible = false
-    };
+    private readonly Button _pillButton = new() { Height = 28 };
+    private readonly Label _caption = new();
+    private readonly StackLayout _primary = new() { Orientation = Orientation.Horizontal, Spacing = 4 };
+    private readonly StackLayout _moreList = new() { Spacing = 2, Visible = false };
+    private readonly StackLayout _expanded = new() { Spacing = 4, Visible = false };
+    private readonly List<Control> _primaryControls = new();
+    private readonly List<Control> _moreControls = new();
 
-    private readonly Label _pillIcon = new();
-    private readonly Label _pillCaption = new();
-    private readonly Label _pillCount = new();
-    private readonly Label _expandedCaption = new();
-
-    private DateTime _shownUtc;
-    private DateTime? _hoverStartedUtc;
-    private DateTime? _leaveStartedUtc;
-    private double _targetOpacity = IdleOpacity;
-    private bool _isExpanded;
+    private DateTime _lastInteractionUtc;
+    private DateTime? _hoverStartUtc;
+    private DateTime? _leaveStartUtc;
+    private double _targetOpacity;
+    private bool _expandedState;
 
     public ContextToolbarForm(
         Action<ContextAction> execute,
-        Action dismiss)
+        Action dismiss,
+        ContextAssistSettings settings)
     {
         _execute = execute;
         _dismiss = dismiss;
+        _settings = settings;
+        _targetOpacity = settings.IdleOpacity;
 
         Title = "Context Assist";
         ShowInTaskbar = false;
@@ -66,104 +44,106 @@ internal sealed class ContextToolbarForm : Form
         Resizable = false;
         WindowStyle = WindowStyle.None;
         Padding = 7;
-        Opacity = IdleOpacity;
+        Opacity = settings.IdleOpacity;
         this.UseRhinoStyle();
 
-        _pill.Items.Add(_pillIcon);
-        _pill.Items.Add(_pillCaption);
-        _pill.Items.Add(_pillCount);
-
-        _expanded.Items.Add(_expandedCaption);
-        _expanded.Items.Add(_primary);
-        _expanded.Items.Add(_more);
-
-        _root.Content = new StackLayout
+        _pillButton.Click += (_, _) =>
         {
-            Spacing = 4,
-            Items = { _pill, _expanded }
+            Touch();
+            SetExpanded(true);
         };
 
-        Content = _root;
+        _expanded.Items.Add(_caption);
+        _expanded.Items.Add(_primary);
+        _expanded.Items.Add(_moreList);
 
-        _interactionTimer = new UITimer { Interval = 0.05 };
-        _interactionTimer.Elapsed += (_, _) => InteractionTick();
-        Closed += (_, _) => _interactionTimer.Stop();
+        Content = new StackLayout
+        {
+            Spacing = 4,
+            Items = { _pillButton, _expanded }
+        };
+
+        _timer = new UITimer { Interval = 0.05 };
+        _timer.Elapsed += (_, _) => Tick();
+        Closed += (_, _) => _timer.Stop();
     }
 
     public void UpdateActions(
         SelectionContext context,
-        IReadOnlyList<ContextAction> actions,
-        ContextAssistSettings settings)
+        IReadOnlyList<ContextAction> actions)
     {
-        _pillIcon.Text = ContextIcon(context.Kind);
-        _pillCaption.Text = context.Caption;
-        _pillCount.Text = actions.Count.ToString();
-        _expandedCaption.Text = $"{ContextIcon(context.Kind)}  {context.Caption}";
+        var icon = ContextIcon(context.Kind);
+        _pillButton.Text = $"{icon}  {ShortCaption(context.Kind, context.Caption)} · {actions.Count}";
+        _caption.Text = $"{icon}  {context.Caption}";
 
         _primary.Items.Clear();
-        _more.Items.Clear();
-        _more.Visible = false;
+        _moreList.Items.Clear();
+        _primaryControls.Clear();
+        _moreControls.Clear();
+        _moreList.Visible = false;
 
-        var primaryCount = Math.Min(settings.PrimaryCount, actions.Count);
+        var primaryCount = Math.Min(_settings.PrimaryCount, actions.Count);
         foreach (var action in actions.Take(primaryCount))
-            _primary.Items.Add(MakeActionButton(action, context.Kind, settings));
+            AddPrimary(MakeActionButton(action, context.Kind));
 
         var remaining = actions.Skip(primaryCount).ToList();
         if (remaining.Count > 0)
         {
-            var moreButton = new Button
+            var more = new Button { Text = $"⋯ Mehr ({remaining.Count})", Height = 30 };
+            more.Click += (_, _) =>
             {
-                Text = $"⋯ Mehr ({remaining.Count})",
-                Height = 30
+                Touch();
+                _moreList.Visible = !_moreList.Visible;
+                ResizeWindow();
+                KeepInsideCurrentScreen();
             };
-
-            moreButton.Click += (_, _) =>
-            {
-                _more.Visible = !_more.Visible;
-                QueueFitToContent();
-            };
-
-            _primary.Items.Add(moreButton);
+            AddPrimary(more);
 
             foreach (var action in remaining)
-                _more.Items.Add(MakeActionButton(action, context.Kind, settings));
+                AddMore(MakeActionButton(action, context.Kind, fullWidth: true));
         }
 
-        var close = new Button
-        {
-            Text = "×",
-            ToolTip = "Ausblenden",
-            Width = 30,
-            Height = 30
-        };
-
+        var close = new Button { Text = "×", ToolTip = "Ausblenden", Width = 30, Height = 30 };
         close.Click += (_, _) => _dismiss();
-        _primary.Items.Add(close);
+        AddPrimary(close);
     }
 
     private Button MakeActionButton(
         ContextAction action,
         SelectionKind kind,
-        ContextAssistSettings settings)
+        bool fullWidth = false)
     {
-        var favorite = settings.IsFavorite(kind, action.Id) ? "★ " : string.Empty;
+        var favorite = _settings.IsFavorite(kind, action.Id) ? "★ " : string.Empty;
         var button = new Button
         {
             Text = $"{action.Icon} {favorite}{action.Label}",
-            ToolTip = $"{action.Hint}\nVerwendet: {settings.UsageCount(action.Id)}×",
-            Height = 30
+            ToolTip = $"{action.Hint}\nVerwendet: {_settings.UsageCount(action.Id)}×",
+            Height = 30,
+            Width = fullWidth ? 230 : -1
         };
-
-        button.Click += (_, _) => _execute(action);
+        button.Click += (_, _) =>
+        {
+            Touch();
+            _execute(action);
+        };
         return button;
     }
 
-    public void ShowAt(
-        SelectionContext context,
-        PopupPositionMode mode)
+    private void AddPrimary(Control control)
+    {
+        _primaryControls.Add(control);
+        _primary.Items.Add(control);
+    }
+
+    private void AddMore(Control control)
+    {
+        _moreControls.Add(control);
+        _moreList.Items.Add(control);
+    }
+
+    public void ShowAt(SelectionContext context, PopupPositionMode mode)
     {
         var position = Mouse.Position;
-
         if (mode == PopupPositionMode.Geometry && context.Anchor.IsValid)
         {
             var view = RhinoDoc.ActiveDoc?.Views.ActiveView;
@@ -177,53 +157,62 @@ internal sealed class ContextToolbarForm : Form
             }
         }
 
-        Location = new Point((int)position.X + 24, (int)position.Y + 24);
-        _shownUtc = DateTime.UtcNow;
+        Location = new Point(
+            (int)position.X + _settings.CursorOffsetPx,
+            (int)position.Y + _settings.CursorOffsetPx);
 
-        _isExpanded = false;
-        _pill.Visible = true;
-        _expanded.Visible = false;
-        _more.Visible = false;
-
+        _lastInteractionUtc = DateTime.UtcNow;
         Show();
-        QueueFitToContent();
-        _interactionTimer.Start();
+
+        if (_settings.UxMode == PopupUxMode.Direct)
+            SetExpanded(true);
+        else
+            SetExpanded(false);
+
+        ResizeWindow();
+        KeepInsideCurrentScreen();
+        _timer.Start();
     }
 
-    private void InteractionTick()
+    private void Tick()
     {
-        if (!Visible)
-            return;
+        if (!Visible) return;
 
         var now = DateTime.UtcNow;
-        var inside = IsMouseInsideWindow();
+        var inside = IsMouseInside();
 
         if (inside)
         {
-            _leaveStartedUtc = null;
-            _hoverStartedUtc ??= now;
-            _targetOpacity = ActiveOpacity;
+            Touch();
+            _leaveStartUtc = null;
+            _hoverStartUtc ??= now;
+            _targetOpacity = _settings.ActiveOpacity;
 
-            if (!_isExpanded &&
-                (now - _hoverStartedUtc.Value).TotalMilliseconds >= HoverDelayMs)
+            if (_settings.UxMode == PopupUxMode.Compact &&
+                !_expandedState &&
+                (now - _hoverStartUtc.Value).TotalMilliseconds >= _settings.HoverDelayMs)
             {
                 SetExpanded(true);
             }
         }
         else
         {
-            _hoverStartedUtc = null;
-            _targetOpacity = IdleOpacity;
+            _hoverStartUtc = null;
+            _targetOpacity = _settings.IdleOpacity;
 
-            if (_isExpanded)
+            if (_expandedState && _settings.UxMode == PopupUxMode.Compact)
             {
-                _leaveStartedUtc ??= now;
+                _leaveStartUtc ??= now;
+                var delay = _moreList.Visible
+                    ? _settings.MoreCollapseDelayMs
+                    : _settings.CollapseDelayMs;
 
-                if ((now - _leaveStartedUtc.Value).TotalMilliseconds >= CollapseDelayMs)
+                if ((now - _leaveStartUtc.Value).TotalMilliseconds >= delay)
                     SetExpanded(false);
             }
 
-            if ((now - _shownUtc).TotalMilliseconds >= AutoHideMs)
+            if (_settings.AutoHideMs > 0 &&
+                (now - _lastInteractionUtc).TotalMilliseconds >= _settings.AutoHideMs)
             {
                 _dismiss();
                 return;
@@ -233,72 +222,89 @@ internal sealed class ContextToolbarForm : Form
         FadeOpacity();
     }
 
-    private bool IsMouseInsideWindow()
+    private void Touch() => _lastInteractionUtc = DateTime.UtcNow;
+
+    private bool IsMouseInside()
     {
         var mouse = Mouse.Position;
-
-        return mouse.X >= Location.X &&
-               mouse.Y >= Location.Y &&
-               mouse.X <= Location.X + Width &&
-               mouse.Y <= Location.Y + Height;
+        return mouse.X >= Location.X && mouse.Y >= Location.Y &&
+               mouse.X <= Location.X + Width && mouse.Y <= Location.Y + Height;
     }
 
     private void FadeOpacity()
     {
+        const double step = 0.10;
         if (Math.Abs(Opacity - _targetOpacity) < 0.01)
         {
             Opacity = _targetOpacity;
             return;
         }
 
-        Opacity += Opacity < _targetOpacity ? FadeStep : -FadeStep;
-        Opacity = Math.Clamp(Opacity, IdleOpacity, ActiveOpacity);
+        Opacity += Opacity < _targetOpacity ? step : -step;
+        Opacity = Math.Clamp(
+            Opacity,
+            Math.Min(_settings.IdleOpacity, _settings.ActiveOpacity),
+            Math.Max(_settings.IdleOpacity, _settings.ActiveOpacity));
     }
 
     private void SetExpanded(bool expanded)
     {
-        if (_isExpanded == expanded)
-            return;
-
-        _isExpanded = expanded;
-        _pill.Visible = !expanded;
+        _expandedState = expanded;
+        _pillButton.Visible = !expanded;
         _expanded.Visible = expanded;
-
-        if (!expanded)
-            _more.Visible = false;
-
-        QueueFitToContent();
+        if (!expanded) _moreList.Visible = false;
+        Touch();
+        ResizeWindow();
+        KeepInsideCurrentScreen();
     }
 
-    private void QueueFitToContent()
+    private void ResizeWindow()
     {
-        // Der erste Invoke gibt Eto Zeit, Visible zu übernehmen.
-        // Der zweite Invoke fragt danach die echte PreferredSize ab.
-        Application.Instance.AsyncInvoke(() =>
+        if (!Visible) return;
+
+        if (!_expandedState)
         {
-            _root.Invalidate();
-
-            Application.Instance.AsyncInvoke(() =>
-            {
-                FitWindowToPreferredContent();
-                KeepInsideCurrentScreen();
-            });
-        });
-    }
-
-    private void FitWindowToPreferredContent()
-    {
-        if (!Visible)
+            var pill = _pillButton.GetPreferredSize(SizeF.PositiveInfinity);
+            ClientSize = new Size(
+                Math.Max(150, (int)Math.Ceiling(pill.Width) + WindowPadding),
+                44);
             return;
+        }
 
-        var preferred = _root.GetPreferredSize(SizeF.PositiveInfinity);
+        var caption = _caption.GetPreferredSize(SizeF.PositiveInfinity);
+        var primaryWidth = MeasureHorizontal(_primaryControls);
+        var moreWidth = _moreList.Visible ? MeasureVerticalWidth(_moreControls) : 0;
+        var width = Math.Max((int)Math.Ceiling(caption.Width), Math.Max(primaryWidth, moreWidth));
+        var height = (int)Math.Ceiling(caption.Height) + 30 + WindowPadding + 4;
 
-        var preferredWidth = (int)Math.Ceiling(preferred.Width);
-        var preferredHeight = (int)Math.Ceiling(preferred.Height);
+        if (_moreList.Visible && _moreControls.Count > 0)
+            height += _moreControls.Count * 32 + 4;
 
         ClientSize = new Size(
-            Math.Max(150, preferredWidth + 14),
-            Math.Max(34, preferredHeight + 14));
+            Math.Max(220, width + WindowPadding),
+            Math.Max(58, height));
+    }
+
+    private static int MeasureHorizontal(IReadOnlyList<Control> controls)
+    {
+        var width = 0;
+        foreach (var control in controls)
+        {
+            var preferred = control.GetPreferredSize(SizeF.PositiveInfinity);
+            width += Math.Max(control.Width, (int)Math.Ceiling(preferred.Width));
+        }
+        return width + Math.Max(0, controls.Count - 1) * 4;
+    }
+
+    private static int MeasureVerticalWidth(IReadOnlyList<Control> controls)
+    {
+        var width = 0;
+        foreach (var control in controls)
+        {
+            var preferred = control.GetPreferredSize(SizeF.PositiveInfinity);
+            width = Math.Max(width, Math.Max(control.Width, (int)Math.Ceiling(preferred.Width)));
+        }
+        return width;
     }
 
     private void KeepInsideCurrentScreen()
@@ -306,17 +312,24 @@ internal sealed class ContextToolbarForm : Form
         var center = new PointF(
             Location.X + ClientSize.Width / 2f,
             Location.Y + ClientSize.Height / 2f);
-
         var work = Screen.FromPoint(center).WorkingArea;
         var left = (int)work.Left;
         var top = (int)work.Top;
         var right = (int)work.Right;
         var bottom = (int)work.Bottom;
-
         Location = new Point(
             Math.Clamp(Location.X, left, Math.Max(left, right - Width)),
             Math.Clamp(Location.Y, top, Math.Max(top, bottom - Height)));
     }
+
+    private static string ShortCaption(SelectionKind kind, string fallback) => kind switch
+    {
+        SelectionKind.ClosedPlanarCurve => "Planare Kurve",
+        SelectionKind.PlanarBrepFace => "Planare Teilfläche",
+        SelectionKind.SolidBrep => "Körper",
+        SelectionKind.Block => "Block",
+        _ => fallback
+    };
 
     private static string ContextIcon(SelectionKind kind) => kind switch
     {
@@ -325,10 +338,8 @@ internal sealed class ContextToolbarForm : Form
         SelectionKind.PlanarBrepFace or SelectionKind.BrepFace => "▣",
         SelectionKind.BrepEdge => "⌒",
         SelectionKind.SolidBrep or SelectionKind.Brep => "⬒",
-        SelectionKind.Mesh or SelectionKind.MeshFace or
-            SelectionKind.MeshEdge or SelectionKind.MeshVertex => "△",
-        SelectionKind.SubD or SelectionKind.SubDFace or
-            SelectionKind.SubDEdge or SelectionKind.SubDVertex => "◇",
+        SelectionKind.Mesh or SelectionKind.MeshFace or SelectionKind.MeshEdge or SelectionKind.MeshVertex => "△",
+        SelectionKind.SubD or SelectionKind.SubDFace or SelectionKind.SubDEdge or SelectionKind.SubDVertex => "◇",
         SelectionKind.Block => "◆",
         SelectionKind.Multiple or SelectionKind.Mixed => "▦",
         _ => "•"

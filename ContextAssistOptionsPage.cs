@@ -1,7 +1,121 @@
-using Eto.Forms; using Rhino.UI;
+using Eto.Forms;
+using Rhino.UI;
+
 namespace RhinoContextAssist;
-internal sealed class ContextAssistOptionsPage:OptionsDialogPage { readonly ContextAssistSettings settings;ContextAssistOptionsControl? control;public ContextAssistOptionsPage(ContextAssistSettings s):base("Context Assist")=>settings=s;public override object PageControl=>control??=new ContextAssistOptionsControl(settings);public override bool ShowApplyButton=>true;public override bool ShowDefaultsButton=>false;public override bool OnApply(){control?.ApplySettings();return true;} }
-internal sealed class ContextAssistOptionsControl:Panel { readonly ContextAssistSettings settings;readonly CheckBox enabled=new(){Text="Context Assist aktivieren"};readonly CheckBox auto=new(){Text="Automatisch nach Nutzung priorisieren"};readonly DropDown pos=new();readonly NumericStepper count=new(){MinValue=1,MaxValue=5,DecimalPlaces=0};readonly DropDown kind=new();readonly ListBox actions=new();readonly CheckBox active=new(){Text="Aktion aktiviert"};readonly CheckBox favorite=new(){Text="Favorit (★)"};readonly Label usage=new();List<ActionPreference> current=new();bool update;
- public ContextAssistOptionsControl(ContextAssistSettings s){settings=s;pos.Items.Add("Neben Mauszeiger");pos.Items.Add("Neben Geometrie");foreach(var k in ActionCatalog.ConfigurableKinds)kind.Items.Add(Name(k));var up=new Button{Text="Nach oben"};var down=new Button{Text="Nach unten"};var reset=new Button{Text="Nutzungsstatistik zurücksetzen"};up.Click+=(_,_)=>Move(-1);down.Click+=(_,_)=>Move(1);reset.Click+=(_,_)=>{settings.ResetUsage();Refresh();};kind.SelectedIndexChanged+=(_,_)=>LoadKind();actions.SelectedIndexChanged+=(_,_)=>LoadAction();active.CheckedChanged+=(_,_)=>Edit();favorite.CheckedChanged+=(_,_)=>Edit();var l=new DynamicLayout{Padding=10,Spacing=new Eto.Drawing.Size(6,6)};l.AddRow(enabled);l.AddRow(auto);l.AddRow(new Label{Text="Position"},pos);l.AddRow(new Label{Text="Anzahl Hauptaktionen"},count);l.AddRow(new Label{Text="Objekttyp"},kind);l.AddRow(actions);l.AddRow(active,favorite);l.AddRow(usage);l.AddRow(up,down);l.AddRow(reset);Content=l;update=true;enabled.Checked=s.Enabled;auto.Checked=s.AutomaticPrioritization;pos.SelectedIndex=(int)s.PositionMode;count.Value=s.PrimaryCount;kind.SelectedIndex=0;update=false;LoadKind();}
- void LoadKind(){if(kind.SelectedIndex<0)return;var k=ActionCatalog.ConfigurableKinds[kind.SelectedIndex];current=settings.Preferences[k].Select(x=>new ActionPreference(x.Id,x.Enabled,x.Favorite)).ToList();Refresh();}void Refresh(){if(kind.SelectedIndex<0)return;var k=ActionCatalog.ConfigurableKinds[kind.SelectedIndex];var map=ActionCatalog.Defaults(k).ToDictionary(x=>x.Id);var keep=actions.SelectedIndex;update=true;actions.Items.Clear();foreach(var p in current)if(map.TryGetValue(p.Id,out var a))actions.Items.Add($"{a.Icon} {(p.Favorite?"★ ":"")}{(p.Enabled?"☑":"☐")} {a.Label} ({settings.UsageCount(p.Id)}×)");if(current.Count>0)actions.SelectedIndex=Math.Clamp(keep,0,current.Count-1);update=false;LoadAction();}void LoadAction(){var i=actions.SelectedIndex;if(i<0||i>=current.Count)return;update=true;active.Checked=current[i].Enabled;favorite.Checked=current[i].Favorite;usage.Text=$"Verwendet: {settings.UsageCount(current[i].Id)}×";update=false;}void Edit(){if(update)return;var i=actions.SelectedIndex;if(i<0||i>=current.Count)return;current[i]=current[i] with{Enabled=active.Checked==true,Favorite=favorite.Checked==true};SaveKind();Refresh();}void Move(int d){var i=actions.SelectedIndex;var j=i+d;if(i<0||j<0||j>=current.Count)return;(current[i],current[j])=(current[j],current[i]);SaveKind();Refresh();actions.SelectedIndex=j;}void SaveKind(){if(kind.SelectedIndex<0)return;settings.Preferences[ActionCatalog.ConfigurableKinds[kind.SelectedIndex]]=current.Select(x=>new ActionPreference(x.Id,x.Enabled,x.Favorite)).ToList();}public void ApplySettings(){SaveKind();settings.Enabled=enabled.Checked==true;settings.AutomaticPrioritization=auto.Checked==true;settings.PositionMode=(PopupPositionMode)Math.Max(0,pos.SelectedIndex);settings.PrimaryCount=(int)count.Value;settings.Save();}
- static string Name(SelectionKind k)=>k switch{SelectionKind.PlanarBrepFace=>"Planare Teilfläche",SelectionKind.BrepFace=>"Teilfläche",SelectionKind.BrepEdge=>"Brep-Kante",SelectionKind.ClosedPlanarCurve=>"Geschlossene planare Kurve",SelectionKind.Curve=>"Kurve",SelectionKind.PlanarSurface=>"Planare Fläche",SelectionKind.Surface=>"Fläche",SelectionKind.SolidBrep=>"Geschlossener Körper",SelectionKind.Brep=>"Flächenverband",SelectionKind.Mesh=>"Mesh",SelectionKind.MeshFace=>"Mesh-Fläche",SelectionKind.MeshEdge=>"Mesh-Kante",SelectionKind.MeshVertex=>"Mesh-Vertex",SelectionKind.SubD=>"SubD",SelectionKind.SubDFace=>"SubD-Fläche",SelectionKind.SubDEdge=>"SubD-Kante",SelectionKind.SubDVertex=>"SubD-Vertex",SelectionKind.Block=>"Blockinstanz",SelectionKind.Multiple=>"Mehrfachauswahl",SelectionKind.Mixed=>"Gemischte Auswahl",_=>k.ToString()}; }
+
+internal sealed class ContextAssistOptionsPage : OptionsDialogPage
+{
+    private readonly ContextAssistSettings _settings;
+    private ContextAssistOptionsControl? _control;
+
+    public ContextAssistOptionsPage(ContextAssistSettings settings)
+        : base("Context Assist") => _settings = settings;
+
+    public override object PageControl =>
+        _control ??= new ContextAssistOptionsControl(_settings);
+
+    public override bool ShowApplyButton => true;
+    public override bool ShowDefaultsButton => false;
+    public override bool OnApply()
+    {
+        _control?.ApplySettings();
+        return true;
+    }
+}
+
+internal sealed class ContextAssistOptionsControl : Panel
+{
+    private readonly ContextAssistSettings _settings;
+    private readonly CheckBox _enabled = new() { Text = "Context Assist aktivieren" };
+    private readonly CheckBox _autoPriority = new() { Text = "Automatisch nach Nutzung priorisieren" };
+    private readonly DropDown _uxMode = new();
+    private readonly DropDown _position = new();
+    private readonly NumericStepper _primaryCount = Number(1, 5);
+    private readonly NumericStepper _selectionDelay = Number(0, 2000);
+    private readonly NumericStepper _hoverDelay = Number(0, 2000);
+    private readonly NumericStepper _collapseDelay = Number(0, 5000);
+    private readonly NumericStepper _moreCollapseDelay = Number(0, 10000);
+    private readonly NumericStepper _autoHide = Number(0, 30000);
+    private readonly NumericStepper _proximity = Number(0, 1000);
+    private readonly NumericStepper _offset = Number(0, 200);
+    private readonly NumericStepper _idleOpacity = Number(15, 100);
+    private readonly NumericStepper _activeOpacity = Number(25, 100);
+
+    public ContextAssistOptionsControl(ContextAssistSettings settings)
+    {
+        _settings = settings;
+        _uxMode.Items.Add("Direkt vollständig");
+        _uxMode.Items.Add("Kompakte Pille, bei Hover erweitern");
+        _uxMode.Items.Add("Manuell: Pille per Klick öffnen");
+        _position.Items.Add("Neben Mauszeiger");
+        _position.Items.Add("Neben Geometrie");
+
+        var layout = new DynamicLayout
+        {
+            Padding = 10,
+            Spacing = new Eto.Drawing.Size(6, 6)
+        };
+
+        layout.AddRow(_enabled);
+        layout.AddRow(_autoPriority);
+        layout.AddRow(new Label { Text = "Darstellung" }, _uxMode);
+        layout.AddRow(new Label { Text = "Position" }, _position);
+        layout.AddRow(new Label { Text = "Hauptaktionen" }, _primaryCount);
+        layout.AddRow(new Label { Text = "Verzögerung nach Auswahl (ms)" }, _selectionDelay);
+        layout.AddRow(new Label { Text = "Hover-Verzögerung (ms)" }, _hoverDelay);
+        layout.AddRow(new Label { Text = "Einklappen (ms)" }, _collapseDelay);
+        layout.AddRow(new Label { Text = "Einklappen bei offenem Mehr (ms)" }, _moreCollapseDelay);
+        layout.AddRow(new Label { Text = "Automatisch ausblenden (ms, 0 = aus)" }, _autoHide);
+        layout.AddRow(new Label { Text = "Nähe zur Auswahl (px, 0 = aus)" }, _proximity);
+        layout.AddRow(new Label { Text = "Abstand zum Cursor (px)" }, _offset);
+        layout.AddRow(new Label { Text = "Ruhe-Deckkraft (%)" }, _idleOpacity);
+        layout.AddRow(new Label { Text = "Hover-Deckkraft (%)" }, _activeOpacity);
+
+        Content = layout;
+        LoadSettings();
+    }
+
+    private static NumericStepper Number(double min, double max) => new()
+    {
+        MinValue = min,
+        MaxValue = max,
+        DecimalPlaces = 0
+    };
+
+    private void LoadSettings()
+    {
+        _enabled.Checked = _settings.Enabled;
+        _autoPriority.Checked = _settings.AutomaticPrioritization;
+        _uxMode.SelectedIndex = (int)_settings.UxMode;
+        _position.SelectedIndex = (int)_settings.PositionMode;
+        _primaryCount.Value = _settings.PrimaryCount;
+        _selectionDelay.Value = _settings.SelectionDelayMs;
+        _hoverDelay.Value = _settings.HoverDelayMs;
+        _collapseDelay.Value = _settings.CollapseDelayMs;
+        _moreCollapseDelay.Value = _settings.MoreCollapseDelayMs;
+        _autoHide.Value = _settings.AutoHideMs;
+        _proximity.Value = _settings.ProximityRadiusPx;
+        _offset.Value = _settings.CursorOffsetPx;
+        _idleOpacity.Value = _settings.IdleOpacity * 100;
+        _activeOpacity.Value = _settings.ActiveOpacity * 100;
+    }
+
+    public void ApplySettings()
+    {
+        _settings.Enabled = _enabled.Checked == true;
+        _settings.AutomaticPrioritization = _autoPriority.Checked == true;
+        _settings.UxMode = (PopupUxMode)Math.Max(0, _uxMode.SelectedIndex);
+        _settings.PositionMode = (PopupPositionMode)Math.Max(0, _position.SelectedIndex);
+        _settings.PrimaryCount = (int)_primaryCount.Value;
+        _settings.SelectionDelayMs = (int)_selectionDelay.Value;
+        _settings.HoverDelayMs = (int)_hoverDelay.Value;
+        _settings.CollapseDelayMs = (int)_collapseDelay.Value;
+        _settings.MoreCollapseDelayMs = (int)_moreCollapseDelay.Value;
+        _settings.AutoHideMs = (int)_autoHide.Value;
+        _settings.ProximityRadiusPx = (int)_proximity.Value;
+        _settings.CursorOffsetPx = (int)_offset.Value;
+        _settings.IdleOpacity = _idleOpacity.Value / 100.0;
+        _settings.ActiveOpacity = _activeOpacity.Value / 100.0;
+        _settings.Save();
+    }
+}

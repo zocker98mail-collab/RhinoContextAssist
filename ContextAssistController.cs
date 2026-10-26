@@ -1,3 +1,4 @@
+using Eto.Drawing;
 using Eto.Forms;
 using Rhino;
 using Rhino.DocObjects;
@@ -6,12 +7,11 @@ namespace RhinoContextAssist;
 
 internal sealed class ContextAssistController : IDisposable
 {
-    private const int SelectionDelayMs = 300;
-
     private readonly UITimer _timer;
     private readonly ContextAssistSettings _settings;
     private ContextToolbarForm? _form;
     private DateTime _refreshDue = DateTime.MaxValue;
+    private PointF _selectionMousePosition;
     private bool _started;
 
     public bool Enabled
@@ -43,8 +43,10 @@ internal sealed class ContextAssistController : IDisposable
     private void OnSelectionChanged(object? sender, RhinoObjectSelectionEventArgs e)
     {
         CloseToolbar();
+        _selectionMousePosition = Mouse.Position;
+
         if (Enabled)
-            _refreshDue = DateTime.UtcNow.AddMilliseconds(SelectionDelayMs);
+            _refreshDue = DateTime.UtcNow.AddMilliseconds(_settings.SelectionDelayMs);
     }
 
     private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e) => Hide();
@@ -64,7 +66,23 @@ internal sealed class ContextAssistController : IDisposable
             return;
 
         _refreshDue = DateTime.MaxValue;
+
+        if (_settings.UxMode != PopupUxMode.Manual && !MouseStayedNearSelection())
+            return;
+
         RefreshNow();
+    }
+
+    private bool MouseStayedNearSelection()
+    {
+        if (_settings.ProximityRadiusPx <= 0)
+            return true;
+
+        var current = Mouse.Position;
+        var dx = current.X - _selectionMousePosition.X;
+        var dy = current.Y - _selectionMousePosition.Y;
+        return dx * dx + dy * dy <=
+               _settings.ProximityRadiusPx * _settings.ProximityRadiusPx;
     }
 
     public void RefreshNow()
@@ -85,12 +103,12 @@ internal sealed class ContextAssistController : IDisposable
         }
 
         CloseToolbar();
-        var form = new ContextToolbarForm(ExecuteAction, Hide);
+        var form = new ContextToolbarForm(ExecuteAction, Hide, _settings);
         form.Closed += (_, _) =>
         {
             if (ReferenceEquals(_form, form)) _form = null;
         };
-        form.UpdateActions(context, actions, _settings);
+        form.UpdateActions(context, actions);
         _form = form;
         form.ShowAt(context, _settings.PositionMode);
     }
@@ -99,7 +117,8 @@ internal sealed class ContextAssistController : IDisposable
     {
         _settings.RecordUsage(action.Id);
         Hide();
-        RhinoApp.InvokeOnUiThread((Action)(() => RhinoApp.RunScript(action.Macro, false)));
+        RhinoApp.InvokeOnUiThread((Action)(() =>
+            RhinoApp.RunScript(action.Macro, false)));
     }
 
     public void Hide()
