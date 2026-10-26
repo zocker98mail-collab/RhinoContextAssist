@@ -1,8 +1,11 @@
-# Rhino Context Assist 1.4.2
-Vollständiges GitHub-Projekt. Enthält Aktionsverwaltung, eigene Aktionen, Anwendbarkeitsfilter, stabile/verschiebbare Viewport-Positionen, Kategorien, destruktive Kennzeichnung ohne Bestätigungsdialog, Diagnoseprotokoll, Blockwerkzeuge und JSON-Import/Export.
+# Rhino Context Assist 1.4.3 UI und Aktionskatalog
 
-Vor dem Upload alte `AssemblyInfo.cs`, den Ordner `Properties`, alte `ContextToolbarForm.cs` und doppelte Workflow-/Manifest-Dateien in der Repository-Wurzel löschen.
+Ersetze im bestehenden 1.4.2-Projekt:
+- ActionCatalog.cs
+- ContextAssistOptionsPage.cs
 
-
-## Repository bereinigen
-Vor dem Upload alte Dateien löschen: `ContextActionPolicy.cs`, `/build-rhino-plugin.yml`, `/manifest.yml`, `AssemblyInfo.cs`, `Properties/`, `ActionCatalog-CHANGE.txt`, `reference-settings.png`, `README.txt`. Behalten: `.github/workflows/build-rhino-plugin.yml` und `package/manifest.yml`.
+Änderungen:
+- Einstellungsbuttons haben feste kompakte Breiten und 30 px Höhe.
+- Teilflächen bieten Abrunden und Fasen ihrer Randkanten sowie PushPull, Inset, Verschieben, Versetzen, Lösen, Rand duplizieren und Löschen.
+- Körper und Flächenverbände bieten wieder Abrunden und Fasen.
+- Umfangreiche Aktionen für Kurven, Flächen, Breps, Meshes, SubD, Blöcke und Mehrfachauswahl wiederhergestellt.
