@@ -1,11 +1,5 @@
 name: RhinoContextAssist
-version: 1.0.3
-authors:
-  - Marcel Draeger
-description: Dynamische kontextabhängige Mini-Toolbar für Rhino 8.
-keywords:
-  - productivity
-  - context-menu
-  - blocks
-  - mesh
-  - subd
+version: 1.4.2
+authors: [Marcel Draeger]
+description: Kontextabhängige WPF-Mini-Toolbar für Rhino 8 unter Windows.
+keywords: [productivity, context-menu, blocks, mesh, subd]
