@@ -1,4 +1,4 @@
-using Rhino; using System.Text.Json;
+using Rhino; using System.Text.Json; using System.IO;
 namespace RhinoContextAssist;
 internal sealed class ContextAssistSettings {
  readonly PersistentSettings store; public bool Enabled{get;set;} public bool AutomaticPrioritization{get;set;} public int PrimaryCount{get;set;} public PopupUxMode UxMode{get;set;} public PopupPositionMode PositionMode{get;set;} public int SelectionDelayMs{get;set;} public int HoverDelayMs{get;set;} public int CollapseDelayMs{get;set;} public int MoreCollapseDelayMs{get;set;} public int AutoHideMs{get;set;} public int CursorOffsetPx{get;set;} public int IdleOpacity{get;set;} public int ActiveOpacity{get;set;} public int CornerMarginPx{get;set;} public List<ContextAction> CustomActions{get;}=new(); public Dictionary<SelectionKind,List<ActionPreference>> Preferences{get;}=new(); public Dictionary<string,UsageEntry> Usage{get;}=new();

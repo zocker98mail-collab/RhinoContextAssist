@@ -1,0 +1,5 @@
+name: RhinoContextAssist
+version: 1.4.1
+authors: [Marcel Draeger]
+description: Kontextabhängige WPF-Mini-Toolbar für Rhino 8 unter Windows.
+keywords: [productivity, context-menu, blocks, mesh, subd]
