@@ -17,11 +17,30 @@ internal sealed class ContextToolbarForm : Form
     private readonly Action<ContextAction> _execute;
     private readonly Action _dismiss;
     private readonly UITimer _interactionTimer;
+
     private readonly Panel _root = new();
-    private readonly StackLayout _pill = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
-    private readonly StackLayout _primary = new() { Orientation = Orientation.Horizontal, Spacing = 4 };
-    private readonly StackLayout _more = new() { Orientation = Orientation.Horizontal, Spacing = 4, Visible = false };
-    private readonly StackLayout _expanded = new() { Spacing = 4, Visible = false };
+    private readonly StackLayout _pill = new()
+    {
+        Orientation = Orientation.Horizontal,
+        Spacing = 6
+    };
+    private readonly StackLayout _primary = new()
+    {
+        Orientation = Orientation.Horizontal,
+        Spacing = 4
+    };
+    private readonly StackLayout _more = new()
+    {
+        Orientation = Orientation.Horizontal,
+        Spacing = 4,
+        Visible = false
+    };
+    private readonly StackLayout _expanded = new()
+    {
+        Spacing = 4,
+        Visible = false
+    };
+
     private readonly Label _pillIcon = new();
     private readonly Label _pillCaption = new();
     private readonly Label _pillCount = new();
@@ -33,7 +52,9 @@ internal sealed class ContextToolbarForm : Form
     private double _targetOpacity = IdleOpacity;
     private bool _isExpanded;
 
-    public ContextToolbarForm(Action<ContextAction> execute, Action dismiss)
+    public ContextToolbarForm(
+        Action<ContextAction> execute,
+        Action dismiss)
     {
         _execute = execute;
         _dismiss = dismiss;
@@ -61,6 +82,7 @@ internal sealed class ContextToolbarForm : Form
             Spacing = 4,
             Items = { _pill, _expanded }
         };
+
         Content = _root;
 
         _interactionTimer = new UITimer { Interval = 0.05 };
@@ -94,18 +116,27 @@ internal sealed class ContextToolbarForm : Form
                 Text = $"⋯ Mehr ({remaining.Count})",
                 Height = 30
             };
+
             moreButton.Click += (_, _) =>
             {
                 _more.Visible = !_more.Visible;
-                Application.Instance.AsyncInvoke(ResizeToContent);
+                QueueFitToContent();
             };
+
             _primary.Items.Add(moreButton);
 
             foreach (var action in remaining)
                 _more.Items.Add(MakeActionButton(action, context.Kind, settings));
         }
 
-        var close = new Button { Text = "×", ToolTip = "Ausblenden", Width = 30, Height = 30 };
+        var close = new Button
+        {
+            Text = "×",
+            ToolTip = "Ausblenden",
+            Width = 30,
+            Height = 30
+        };
+
         close.Click += (_, _) => _dismiss();
         _primary.Items.Add(close);
     }
@@ -122,13 +153,17 @@ internal sealed class ContextToolbarForm : Form
             ToolTip = $"{action.Hint}\nVerwendet: {settings.UsageCount(action.Id)}×",
             Height = 30
         };
+
         button.Click += (_, _) => _execute(action);
         return button;
     }
 
-    public void ShowAt(SelectionContext context, PopupPositionMode mode)
+    public void ShowAt(
+        SelectionContext context,
+        PopupPositionMode mode)
     {
         var position = Mouse.Position;
+
         if (mode == PopupPositionMode.Geometry && context.Anchor.IsValid)
         {
             var view = RhinoDoc.ActiveDoc?.Views.ActiveView;
@@ -144,10 +179,14 @@ internal sealed class ContextToolbarForm : Form
 
         Location = new Point((int)position.X + 24, (int)position.Y + 24);
         _shownUtc = DateTime.UtcNow;
-        SetExpanded(false);
+
+        _isExpanded = false;
+        _pill.Visible = true;
+        _expanded.Visible = false;
+        _more.Visible = false;
+
         Show();
-        ResizeToContent();
-        KeepInsideCurrentScreen();
+        QueueFitToContent();
         _interactionTimer.Start();
     }
 
@@ -165,8 +204,11 @@ internal sealed class ContextToolbarForm : Form
             _hoverStartedUtc ??= now;
             _targetOpacity = ActiveOpacity;
 
-            if (!_isExpanded && (now - _hoverStartedUtc.Value).TotalMilliseconds >= HoverDelayMs)
+            if (!_isExpanded &&
+                (now - _hoverStartedUtc.Value).TotalMilliseconds >= HoverDelayMs)
+            {
                 SetExpanded(true);
+            }
         }
         else
         {
@@ -176,6 +218,7 @@ internal sealed class ContextToolbarForm : Form
             if (_isExpanded)
             {
                 _leaveStartedUtc ??= now;
+
                 if ((now - _leaveStartedUtc.Value).TotalMilliseconds >= CollapseDelayMs)
                     SetExpanded(false);
             }
@@ -193,6 +236,7 @@ internal sealed class ContextToolbarForm : Form
     private bool IsMouseInsideWindow()
     {
         var mouse = Mouse.Position;
+
         return mouse.X >= Location.X &&
                mouse.Y >= Location.Y &&
                mouse.X <= Location.X + Width &&
@@ -213,33 +257,48 @@ internal sealed class ContextToolbarForm : Form
 
     private void SetExpanded(bool expanded)
     {
+        if (_isExpanded == expanded)
+            return;
+
         _isExpanded = expanded;
         _pill.Visible = !expanded;
         _expanded.Visible = expanded;
+
         if (!expanded)
             _more.Visible = false;
 
+        QueueFitToContent();
+    }
+
+    private void QueueFitToContent()
+    {
+        // Der erste Invoke gibt Eto Zeit, Visible zu übernehmen.
+        // Der zweite Invoke fragt danach die echte PreferredSize ab.
         Application.Instance.AsyncInvoke(() =>
         {
-            ResizeToContent();
-            KeepInsideCurrentScreen();
+            _root.Invalidate();
+
+            Application.Instance.AsyncInvoke(() =>
+            {
+                FitWindowToPreferredContent();
+                KeepInsideCurrentScreen();
+            });
         });
     }
 
-    private void ResizeToContent()
+    private void FitWindowToPreferredContent()
     {
         if (!Visible)
             return;
 
-        var width = _isExpanded
-            ? Math.Max(_primary.Width, _more.Visible ? _more.Width : 0) + 14
-            : _pill.Width + 14;
+        var preferred = _root.GetPreferredSize(SizeF.PositiveInfinity);
 
-        var height = _isExpanded
-            ? _expandedCaption.Height + _primary.Height + (_more.Visible ? _more.Height + 4 : 0) + 14
-            : _pill.Height + 14;
+        var preferredWidth = (int)Math.Ceiling(preferred.Width);
+        var preferredHeight = (int)Math.Ceiling(preferred.Height);
 
-        ClientSize = new Size(Math.Max(150, width), Math.Max(34, height));
+        ClientSize = new Size(
+            Math.Max(150, preferredWidth + 14),
+            Math.Max(34, preferredHeight + 14));
     }
 
     private void KeepInsideCurrentScreen()
@@ -266,8 +325,10 @@ internal sealed class ContextToolbarForm : Form
         SelectionKind.PlanarBrepFace or SelectionKind.BrepFace => "▣",
         SelectionKind.BrepEdge => "⌒",
         SelectionKind.SolidBrep or SelectionKind.Brep => "⬒",
-        SelectionKind.Mesh or SelectionKind.MeshFace or SelectionKind.MeshEdge or SelectionKind.MeshVertex => "△",
-        SelectionKind.SubD or SelectionKind.SubDFace or SelectionKind.SubDEdge or SelectionKind.SubDVertex => "◇",
+        SelectionKind.Mesh or SelectionKind.MeshFace or
+            SelectionKind.MeshEdge or SelectionKind.MeshVertex => "△",
+        SelectionKind.SubD or SelectionKind.SubDFace or
+            SelectionKind.SubDEdge or SelectionKind.SubDVertex => "◇",
         SelectionKind.Block => "◆",
         SelectionKind.Multiple or SelectionKind.Mixed => "▦",
         _ => "•"
