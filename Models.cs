@@ -1,7 +1,7 @@
 using Rhino.Geometry;
 namespace RhinoContextAssist;
-internal enum SelectionKind { None, Multiple, MultipleBodies, Mixed, Curve, ClosedPlanarCurve, Surface, PlanarSurface, Brep, SolidBrep, BrepFace, PlanarBrepFace, BrepEdge, Mesh, MeshFace, MeshEdge, MeshVertex, SubD, SubDFace, SubDEdge, SubDVertex, Block }
-internal enum PopupPositionMode { Mouse, Geometry }
+internal enum SelectionKind { None, Multiple, MultipleEnvelopeObjects, Mixed, Curve, ClosedPlanarCurve, Surface, PlanarSurface, Brep, SolidBrep, BrepFace, PlanarBrepFace, BrepEdge, Mesh, MeshFace, MeshEdge, MeshVertex, SubD, SubDFace, SubDEdge, SubDVertex, Block }
+internal enum PopupPositionMode { Mouse, Geometry, GeometryOffset, ViewportCorner }
 internal enum PopupUxMode { Direct, Compact, Manual }
 internal sealed record SelectionContext(SelectionKind Kind,int Count,string Caption,Point3d Anchor);
 internal sealed record ContextAction(string Id,string Icon,string Label,string Macro,string Hint);

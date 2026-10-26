@@ -1,26 +1,19 @@
-# Rhino Context Assist WPF 1.3.2
+# WPF 1.3.3: Mehrfachauswahl + freie Position
 
-## Standardwerte für Neuinstallationen
-- Aktiviert: Ja
-- Automatische Priorisierung: Ja
-- Darstellung: Kompakte Pille, bei Hover erweitern
-- Position: Neben Mauszeiger
-- Hauptaktionen: 5
-- Auswahlverzögerung: 300 ms
-- Hover: 300 ms
-- Einklappen: 600 ms
-- Einklappen bei offenem Mehr: 1500 ms
-- Auto-Hide: 5000 ms
-- Nähe: 0 px (deaktiviert)
-- Cursorabstand: 5 px
-- Ruhedeckkraft: 42 %
-- Hoverdeckkraft: 100 %
+## Ersetzen
+- Models.cs
+- SelectionAnalyzer.cs
+- ContextAssistController.cs
 
-Bereits gespeicherte Einstellungen werden absichtlich nicht überschrieben.
+## Ergänzen
+- ContextActionPolicy.cs
 
-## X-Position
-`ContextAssistPopup.xaml` verwendet im Kopfbereich ein Grid mit `*` und `Auto`. Der Schließen-Button bleibt dadurch rechts oben.
+## Anwenden
+- PopupPlacement-PATCH.txt auf ContextAssistPopup.xaml.cs
+- OptionsPage-PATCH.txt auf ContextAssistOptionsPage.cs
 
-## Linien-Hüllkörper
-`Models.cs` und `SelectionAnalyzer.cs` erkennen mehrere ausschließlich ausgewählte Körper/Flächenverbände als `MultipleBodies`.
-Die Datei `ActionCatalog-CHANGE.txt` beschreibt die erforderliche kleine Änderung an deinem bestehenden ActionCatalog, damit die Aktion nur bei `SolidBrep`, `Brep` und `MultipleBodies` erscheint.
+## Verhalten
+- Einzelne und mehrere Breps, Volumenkörper, Extrusionskörper und Meshes zeigen wieder ein Menü.
+- Mehrfachauswahl ausschließlich aus diesen Typen wird als MultipleEnvelopeObjects erkannt.
+- Linien-Hüllkörper erscheint nur für SolidBrep, Brep, Mesh und MultipleEnvelopeObjects.
+- Neue Positionen: mit 110 px Abstand zur Geometrie oder automatisch in der entferntesten Viewport-Ecke.
