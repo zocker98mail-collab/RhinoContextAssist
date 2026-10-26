@@ -1,13 +1,18 @@
-# Rhino Context Assist 1.3.3
+# Rhino Context Assist 1.3.4 Build-Fix
 
-Vollständiges GitHub-Projekt, keine manuellen Patches erforderlich.
+## Ursache
+Im Repository werden mindestens zwei Assembly-Metadatendateien kompiliert. Deshalb entstehen doppelte Attribute wie `AssemblyTitle`, `AssemblyProduct`, `Guid` und `ComVisible`.
 
-## Neu
-- Mehrfachauswahl aus Körpern, Flächenverbänden und Meshes zeigt wieder ein Menü.
-- Linien-Hüllkörper nur für einzelne/mehrere Körper, Flächenverbände und Meshes.
-- Positionen: Maus, direkt an Geometrie, 110 px Abstand, entfernteste Viewport-Ecke.
-- Standardposition für Neuinstallationen: freie Viewport-Ecke.
-- WPF-Popup, Eto-Optionsseite.
+## Installation
+1. `RhinoContextAssist.csproj` ersetzen.
+2. `PluginMetadata.cs` in die Repository-Wurzel hochladen.
+3. Den kompletten Ordner `Properties` aus dem Repository löschen, sofern er nur `AssemblyInfo.cs` enthält.
+4. Zusätzlich jede andere Datei namens `AssemblyInfo.cs` löschen.
+5. GitHub Actions erneut starten.
 
-## Upload
-Den Inhalt dieses Ordners in die Repository-Wurzel laden. Alte Dateien vollständig ersetzen und insbesondere `ContextToolbarForm.cs` löschen. Danach GitHub Actions starten.
+Die Projektdatei schließt vorsichtshalber alle verbliebenen `AssemblyInfo.cs` vom Build aus.
+
+## Warnungen
+Die Warnungen zu `Load()` und `Icon()` verhindern den Build nicht. Optional:
+- `ContextAssistOptionsControl.Load()` in `LoadSettingsIntoControls()` umbenennen.
+- `ContextAssistPopup.Icon(...)` in `ContextIcon(...)` umbenennen.

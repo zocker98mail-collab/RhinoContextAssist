@@ -13,7 +13,14 @@
     <AssemblyName>RhinoContextAssist</AssemblyName>
     <RootNamespace>RhinoContextAssist</RootNamespace>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Entfernt alte und doppelte AssemblyInfo-Dateien aus früheren Versionen. -->
+    <Compile Remove="**/AssemblyInfo.cs" />
+    <Compile Remove="ContextToolbarForm.cs" />
   </ItemGroup>
 </Project>
