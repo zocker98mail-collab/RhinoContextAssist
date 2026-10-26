@@ -1,50 +1,13 @@
-name: Rhino Context Assist WPF bauen
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-
+name: Rhino Context Assist 1.4.2 bauen
+on: { workflow_dispatch: {}, push: { branches: [ main ] } }
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
-      - name: Repository auschecken
-        uses: actions/checkout@v4
-
-      - name: .NET 7 einrichten
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "7.0.x"
-
-      - name: Abhängigkeiten wiederherstellen
-        run: dotnet restore RhinoContextAssist.csproj
-
-      - name: Plug-in kompilieren
-        run: dotnet build RhinoContextAssist.csproj --configuration Release --no-restore
-
-      - name: Build-Ergebnis kontrollieren
-        shell: pwsh
-        run: |
-          $output = Join-Path $PWD "bin/Release/net7.0-windows"
-          $plugin = Join-Path $output "RhinoContextAssist.rhp"
-
-          Get-ChildItem -Path "bin/Release" -Recurse
-
-          if (-not (Test-Path $plugin)) {
-            throw "RhinoContextAssist.rhp wurde nicht erzeugt. Erwarteter Pfad: $plugin"
-          }
-
-          Write-Host "RhinoContextAssist.rhp wurde erzeugt: $plugin"
-
-      - name: Build-Artefakt hochladen
-        uses: actions/upload-artifact@v4
-        with:
-          name: RhinoContextAssist-WPF
-          path: |
-            bin/Release/net7.0-windows/RhinoContextAssist.rhp
-            bin/Release/net7.0-windows/RhinoContextAssist.deps.json
-            bin/Release/net7.0-windows/RhinoContextAssist.runtimeconfig.json
-            bin/Release/net7.0-windows/RhinoContextAssist.pdb
-          if-no-files-found: error
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "7.0.x" }
+      - run: dotnet restore RhinoContextAssist.csproj
+      - run: dotnet build RhinoContextAssist.csproj -c Release --no-restore
+      - uses: actions/upload-artifact@v4
+        with: { name: RhinoContextAssist-1.4.2, path: bin/Release/net7.0-windows/*, if-no-files-found: error }
