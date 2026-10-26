@@ -1,25 +1,18 @@
-# Rhino Context Assist WPF UI 1.3
+# WPF Build-Fix 1.3.1
 
-## Dateien ersetzen/ergänzen
+## Behobene Fehler
+- `UseWindowsForms` entfernt. Dadurch verschwinden die globalen Namenskonflikte mit Eto und WPF.
+- WPF `Button` wird explizit über Alias `WpfButton` verwendet.
+- Controller verwendet explizit `Eto.Drawing.PointF`.
+- WPF-XAML erzeugt eine öffentliche partielle Klasse; Code-behind ist jetzt ebenfalls `public partial`.
+- Methoden mit internen Parametertypen sind jetzt `internal`, wodurch die Accessibility-Fehler entfallen.
+- Mehrmonitor-Arbeitsbereich wird ohne WinForms über Win32 `MonitorFromPoint/GetMonitorInfo` ermittelt.
+- Rhino wird über das native Owner-HWND verbunden.
 
-1. `RhinoContextAssist.csproj` ersetzen.
-2. `ContextAssistController.cs` ersetzen.
-3. `ContextAssistPopup.xaml` ergänzen.
-4. `ContextAssistPopup.xaml.cs` ergänzen.
-5. Die alte `ContextToolbarForm.cs` kann gelöscht werden. Die Projektdatei schließt sie vorsichtshalber vom Build aus.
-6. Die Eto-Datei `ContextAssistOptionsPage.cs` bleibt unverändert.
+## Installation
+Diese drei Dateien ersetzen:
+- RhinoContextAssist.csproj
+- ContextAssistController.cs
+- ContextAssistPopup.xaml.cs
 
-## Voraussetzungen
-
-- Rhino 8 für Windows.
-- GitHub Actions mit `windows-latest`.
-- .NET 7 Windows Desktop Targeting wird durch `UseWPF=true` aktiviert.
-
-## Verhalten
-
-- WPF `SizeToContent=WidthAndHeight` übernimmt die dynamische Fenstergröße.
-- `Mehr` ist ein echtes WPF-Popup und vergrößert das Hauptfenster nicht.
-- Abgerundete Ecken, Schatten, moderne Hoverzustände und Opazitätsanimationen.
-- `ShowActivated=false`, `WS_EX_NOACTIVATE` und `WM_MOUSEACTIVATE/MA_NOACTIVATE` verhindern Fokusübernahme.
-- Optionen und persistente Einstellungen bleiben in Eto/Rhino `PersistentSettings`.
-- Die bestehende Auswahl-, Statistik-, Favoriten- und Priorisierungslogik bleibt erhalten.
+`ContextAssistPopup.xaml` bleibt aus dem vorherigen WPF-Paket erhalten.

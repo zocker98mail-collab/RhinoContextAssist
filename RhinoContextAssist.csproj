@@ -3,7 +3,6 @@
     <TargetFramework>net7.0-windows</TargetFramework>
     <OutputType>Library</OutputType>
     <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <TargetExt>.rhp</TargetExt>
@@ -20,7 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Die alte Eto-Popup-Datei darf nicht parallel kompiliert werden. -->
     <Compile Remove="ContextToolbarForm.cs" />
   </ItemGroup>
 </Project>

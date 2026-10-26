@@ -1,21 +1,22 @@
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using EtoPointF = Eto.Drawing.PointF;
 using Rhino;
+using EtoPointF = Eto.Drawing.PointF;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace RhinoContextAssist;
 
-internal partial class ContextAssistPopup : Window
+public partial class ContextAssistPopup : Window
 {
     private const int GwlExStyle = -20;
     private const int WsExNoActivate = 0x08000000;
     private const int WsExToolWindow = 0x00000080;
     private const int WmMouseActivate = 0x0021;
     private const int MaNoActivate = 3;
+    private const uint MonitorDefaultToNearest = 2;
 
     private readonly Action<ContextAction> _execute;
     private readonly Action _dismiss;
@@ -27,9 +28,9 @@ internal partial class ContextAssistPopup : Window
     private DateTime? _hoverStartUtc;
     private DateTime? _leaveStartUtc;
     private bool _expanded;
-    private Button? _moreButton;
+    private WpfButton? _moreButton;
 
-    public ContextAssistPopup(
+    internal ContextAssistPopup(
         Action<ContextAction> execute,
         Action dismiss,
         ContextAssistSettings settings)
@@ -39,7 +40,6 @@ internal partial class ContextAssistPopup : Window
         _dismiss = dismiss;
         _settings = settings;
 
-        Owner = null;
         SourceInitialized += OnSourceInitialized;
         MouseEnter += (_, _) => Touch();
         PreviewMouseMove += (_, _) => Touch();
@@ -51,7 +51,7 @@ internal partial class ContextAssistPopup : Window
             Dispatcher);
     }
 
-    public void UpdateActions(
+    internal void UpdateActions(
         SelectionContext context,
         IReadOnlyList<ContextAction> actions)
     {
@@ -71,9 +71,8 @@ internal partial class ContextAssistPopup : Window
         _remaining.AddRange(actions.Skip(primaryCount));
         if (_remaining.Count > 0)
         {
-            _moreButton = new Button
+            _moreButton = new WpfButton
             {
-                Name = "MoreButton",
                 Content = $"⋯ Mehr ({_remaining.Count})",
                 Style = (Style)FindResource("ActionButton")
             };
@@ -87,10 +86,11 @@ internal partial class ContextAssistPopup : Window
         else
         {
             _moreButton = null;
+            MorePopup.PlacementTarget = null;
         }
     }
 
-    public void ShowAt(SelectionContext context, PopupPositionMode mode)
+    internal void ShowAt(SelectionContext context, PopupPositionMode mode)
     {
         var position = GetAnchorPosition(context, mode);
         Left = position.X + _settings.CursorOffsetPx;
@@ -113,8 +113,7 @@ internal partial class ContextAssistPopup : Window
             return mouse;
 
         var view = RhinoDoc.ActiveDoc?.Views.ActiveView;
-        if (view is null)
-            return mouse;
+        if (view is null) return mouse;
 
         var client = view.ActiveViewport.WorldToClient(context.Anchor);
         var screen = view.ScreenRectangle;
@@ -123,17 +122,18 @@ internal partial class ContextAssistPopup : Window
             (float)(screen.Top + client.Y));
     }
 
-    private Button CreateActionButton(
+    private WpfButton CreateActionButton(
         ContextAction action,
         SelectionKind kind,
         bool moreItem)
     {
         var favorite = _settings.IsFavorite(kind, action.Id) ? "★ " : string.Empty;
-        var button = new Button
+        var button = new WpfButton
         {
             Content = $"{action.Icon}  {favorite}{action.Label}",
             ToolTip = $"{action.Hint}\nVerwendet: {_settings.UsageCount(action.Id)}×",
-            Style = (Style)FindResource(moreItem ? "MoreItemButton" : "ActionButton")
+            Style = (Style)FindResource(
+                moreItem ? "MoreItemButton" : "ActionButton")
         };
 
         button.Click += (_, _) =>
@@ -161,13 +161,11 @@ internal partial class ContextAssistPopup : Window
 
     private void Tick()
     {
-        if (!IsVisible)
-            return;
+        if (!IsVisible) return;
 
         var now = DateTime.UtcNow;
-        var insideMain = IsMouseInsideWindow();
-        var insideMore = MorePopup.IsOpen && MorePopup.IsMouseOver;
-        var inside = insideMain || insideMore;
+        var inside = IsMouseInsideWindow() ||
+                     (MorePopup.IsOpen && MorePopup.IsMouseOver);
 
         if (inside)
         {
@@ -178,7 +176,8 @@ internal partial class ContextAssistPopup : Window
 
             if (_settings.UxMode == PopupUxMode.Compact &&
                 !_expanded &&
-                (now - _hoverStartUtc.Value).TotalMilliseconds >= _settings.HoverDelayMs)
+                (now - _hoverStartUtc.Value).TotalMilliseconds >=
+                _settings.HoverDelayMs)
             {
                 SetExpanded(true);
             }
@@ -203,7 +202,8 @@ internal partial class ContextAssistPopup : Window
             }
 
             if (_settings.AutoHideMs > 0 &&
-                (now - _lastInteractionUtc).TotalMilliseconds >= _settings.AutoHideMs)
+                (now - _lastInteractionUtc).TotalMilliseconds >=
+                _settings.AutoHideMs)
             {
                 _dismiss();
             }
@@ -214,16 +214,21 @@ internal partial class ContextAssistPopup : Window
     {
         var mouse = Eto.Forms.Mouse.Position;
         return mouse.X >= Left && mouse.Y >= Top &&
-               mouse.X <= Left + ActualWidth && mouse.Y <= Top + ActualHeight;
+               mouse.X <= Left + ActualWidth &&
+               mouse.Y <= Top + ActualHeight;
     }
 
     private void SetExpanded(bool expanded)
     {
         _expanded = expanded;
-        PillButton.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
-        ExpandedPanel.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        if (!expanded)
-            MorePopup.IsOpen = false;
+        PillButton.Visibility = expanded
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        ExpandedPanel.Visibility = expanded
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        if (!expanded) MorePopup.IsOpen = false;
 
         Touch();
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
@@ -236,8 +241,7 @@ internal partial class ContextAssistPopup : Window
 
     private void AnimateOpacity(double target)
     {
-        if (Math.Abs(Opacity - target) < 0.02)
-            return;
+        if (Math.Abs(Opacity - target) < 0.02) return;
 
         BeginAnimation(
             OpacityProperty,
@@ -254,33 +258,34 @@ internal partial class ContextAssistPopup : Window
 
     private void ClampToWorkArea()
     {
-        var point = new System.Drawing.Point((int)Left, (int)Top);
-        var work = System.Windows.Forms.Screen.FromPoint(point).WorkingArea;
+        var point = new NativePoint { X = (int)Left, Y = (int)Top };
+        var monitor = MonitorFromPoint(point, MonitorDefaultToNearest);
+        var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfo(monitor, ref info)) return;
 
-        Left = Math.Clamp(Left, work.Left, Math.Max(work.Left, work.Right - ActualWidth));
-        Top = Math.Clamp(Top, work.Top, Math.Max(work.Top, work.Bottom - ActualHeight));
+        var work = info.WorkArea;
+        Left = Math.Clamp(Left, work.Left,
+            Math.Max(work.Left, work.Right - ActualWidth));
+        Top = Math.Clamp(Top, work.Top,
+            Math.Max(work.Top, work.Bottom - ActualHeight));
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
-        var helper = new WindowInteropHelper(this)
-        {
-            Owner = RhinoApp.MainWindowHandle()
-        };
+        var helper = new WindowInteropHelper(this);
+        var handle = helper.Handle;
+        var owner = RhinoApp.MainWindowHandle();
+        SetWindowLongPtr(handle, -8, owner);
 
-        var source = HwndSource.FromHwnd(helper.Handle);
-        source?.AddHook(WindowProc);
+        HwndSource.FromHwnd(handle)?.AddHook(WindowProc);
 
-        var style = GetWindowLongPtr(helper.Handle, GwlExStyle).ToInt64();
+        var style = GetWindowLongPtr(handle, GwlExStyle).ToInt64();
         style |= WsExNoActivate | WsExToolWindow;
-        SetWindowLongPtr(helper.Handle, GwlExStyle, new IntPtr(style));
+        SetWindowLongPtr(handle, GwlExStyle, new IntPtr(style));
     }
 
     private static IntPtr WindowProc(
-        IntPtr hwnd,
-        int message,
-        IntPtr wParam,
-        IntPtr lParam,
+        IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam,
         ref bool handled)
     {
         if (message == WmMouseActivate)
@@ -288,18 +293,18 @@ internal partial class ContextAssistPopup : Window
             handled = true;
             return new IntPtr(MaNoActivate);
         }
-
         return IntPtr.Zero;
     }
 
-    private static string ShortCaption(SelectionKind kind, string fallback) => kind switch
-    {
-        SelectionKind.ClosedPlanarCurve => "Planare Kurve",
-        SelectionKind.PlanarBrepFace => "Planare Teilfläche",
-        SelectionKind.SolidBrep => "Körper",
-        SelectionKind.Block => "Block",
-        _ => fallback
-    };
+    private static string ShortCaption(SelectionKind kind, string fallback) =>
+        kind switch
+        {
+            SelectionKind.ClosedPlanarCurve => "Planare Kurve",
+            SelectionKind.PlanarBrepFace => "Planare Teilfläche",
+            SelectionKind.SolidBrep => "Körper",
+            SelectionKind.Block => "Block",
+            _ => fallback
+        };
 
     private static string ContextIcon(SelectionKind kind) => kind switch
     {
@@ -317,6 +322,33 @@ internal partial class ContextAssistPopup : Window
         _ => "•"
     };
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint { public int X; public int Y; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MonitorInfo
+    {
+        public int Size;
+        public NativeRect Monitor;
+        public NativeRect WorkArea;
+        public uint Flags;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromPoint(
+        NativePoint point, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(
+        IntPtr monitor, ref MonitorInfo monitorInfo);
+
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
     private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
 
@@ -324,15 +356,20 @@ internal partial class ContextAssistPopup : Window
     private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
 
     private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex) =>
-        IntPtr.Size == 8 ? GetWindowLongPtr64(hWnd, nIndex) : GetWindowLong32(hWnd, nIndex);
+        IntPtr.Size == 8
+            ? GetWindowLongPtr64(hWnd, nIndex)
+            : GetWindowLong32(hWnd, nIndex);
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
-    private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr newLong);
+    private static extern IntPtr SetWindowLongPtr64(
+        IntPtr hWnd, int nIndex, IntPtr newLong);
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
-    private static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, IntPtr newLong);
+    private static extern IntPtr SetWindowLong32(
+        IntPtr hWnd, int nIndex, IntPtr newLong);
 
-    private static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr newLong) =>
+    private static IntPtr SetWindowLongPtr(
+        IntPtr hWnd, int nIndex, IntPtr newLong) =>
         IntPtr.Size == 8
             ? SetWindowLongPtr64(hWnd, nIndex, newLong)
             : SetWindowLong32(hWnd, nIndex, newLong);

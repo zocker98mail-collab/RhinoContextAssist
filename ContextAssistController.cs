@@ -1,7 +1,7 @@
-using Eto.Drawing;
 using Eto.Forms;
 using Rhino;
 using Rhino.DocObjects;
+using EtoPointF = Eto.Drawing.PointF;
 
 namespace RhinoContextAssist;
 
@@ -11,7 +11,7 @@ internal sealed class ContextAssistController : IDisposable
     private readonly ContextAssistSettings _settings;
     private ContextAssistPopup? _popup;
     private DateTime _refreshDue = DateTime.MaxValue;
-    private PointF _selectionMousePosition;
+    private EtoPointF _selectionMousePosition;
     private bool _started;
 
     public bool Enabled
@@ -65,17 +65,13 @@ internal sealed class ContextAssistController : IDisposable
             return;
 
         _refreshDue = DateTime.MaxValue;
-        if (!MouseStayedNearSelection())
-            return;
-
+        if (!MouseStayedNearSelection()) return;
         RefreshNow();
     }
 
     private bool MouseStayedNearSelection()
     {
-        if (_settings.ProximityRadiusPx <= 0)
-            return true;
-
+        if (_settings.ProximityRadiusPx <= 0) return true;
         var current = Mouse.Position;
         var dx = current.X - _selectionMousePosition.X;
         var dy = current.Y - _selectionMousePosition.Y;
