@@ -1,16 +1,16 @@
-# Rhino Context Assist 1.5.3 Direct Replacement
+# Rhino Context Assist 2.0 Hybrid HUD Preview
 
-Ersetze im GitHub-Repository direkt:
+## Architektur
+- `ContextAssistHudConduit`: zeichnet Kontext, Hauptaktionen und Lern-Tooltip direkt in den aktiven Rhino-Viewport.
+- `ContextAssistMouseCallback`: Hover, Linksklick und Rechtsklick/Favorit ohne WPF-Fokus.
+- `CommandSearchWindow`: WPF wird nur noch für Suche, lange Listen und Scrollen verwendet.
 
-- `ActionCatalog.cs`
-- `ContextAssistPopup.xaml`
+## Bedienung
+- Linksklick auf HUD-Aktion: Befehl ausführen.
+- Rechtsklick: Favorit umschalten.
+- Hover: Lern-Tooltip nach 180 ms.
+- `Mehr`: WPF-Befehlssuche öffnen.
+- Doppelklick auf Suchergebnis: ausführen.
 
-Keine Skripte und keine manuellen Änderungen erforderlich.
-
-## Änderungen
-
-- Der sichtbare deutsche Befehlsname lautet überall `Inset`.
-- Das interne sprachunabhängige Makro bleibt `_Inset`.
-- Erster Tooltip nach 180 ms.
-- Weitere Tooltips ohne erneute Verzögerung.
-- Maximale Tooltip-Anzeigedauer 12 Sekunden.
+## Installation
+Repository-Inhalt vollständig ersetzen. Alte Dateien `ContextAssistPopup.xaml`, `ContextAssistPopup.xaml.cs`, `ContextToolbarForm.cs`, `ContextActionPolicy.cs`, `AssemblyInfo.cs` und `Properties/` löschen.

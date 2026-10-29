@@ -1,0 +1,6 @@
+using Rhino;using Rhino.UI;
+namespace RhinoContextAssist;
+internal sealed class ContextAssistMouseCallback:MouseCallback{readonly HudState state;readonly ContextAssistSettings settings;readonly Action<ContextAction> run;readonly Action openSearch;internal ContextAssistMouseCallback(HudState s,ContextAssistSettings x,Action<ContextAction> r,Action search){state=s;settings=x;run=r;openSearch=search;Enabled=true;}
+ protected override void OnMouseMove(MouseCallbackEventArgs e){if(e.View.RuntimeSerialNumber!=state.ViewSerial)return;var index=state.Regions.FindIndex(r=>r.Bounds.Contains(e.ViewportPoint));if(index!=state.HoverIndex){state.HoverIndex=index;state.HoverSince=DateTime.UtcNow;e.View.Redraw();}base.OnMouseMove(e);}
+ protected override void OnMouseDown(MouseCallbackEventArgs e){if(e.View.RuntimeSerialNumber!=state.ViewSerial)return;var region=state.Regions.FirstOrDefault(r=>r.Bounds.Contains(e.ViewportPoint));if(region==null){base.OnMouseDown(e);return;}if(region.Kind=="more"&&e.MouseButton==MouseButton.Left){e.Cancel=true;openSearch();return;}if(region.Action!=null){e.Cancel=true;if(e.MouseButton==MouseButton.Right){settings.Toggle(region.Action.Id);e.View.Redraw();}else if(e.MouseButton==MouseButton.Left)run(region.Action);}base.OnMouseDown(e);}
+}
