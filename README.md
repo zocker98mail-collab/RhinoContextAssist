@@ -1,25 +1,20 @@
-# Rhino Context Assist 2.0.1 Search Window Build-Fix
-
-## Ersetzen
-
-Im Hybrid-HUD-Projekt ausschließlich diese Datei ersetzen:
-
-- `CommandSearchWindow.xaml.cs`
-
-`CommandSearchWindow.xaml` bleibt unverändert.
+# Rhino Context Assist 2.0.2 Legacy Cleanup Fix
 
 ## Ursache
 
-Die WPF-Klasse muss wegen XAML öffentlich bleiben. Der bisherige öffentliche Konstruktor verwendete aber den internen Typ `ContextAction`. Dadurch war der Konstruktor sichtbarer als sein Parametertyp.
+Im Repository liegt noch `ActionService.cs` aus Version 1.5. Die Hybrid-HUD-Version 2.0 verwendet diese Klasse nicht mehr. Die alte Datei erwartet inzwischen entfernte Typen und Eigenschaften:
 
-## Korrektur
+- `SelectionKind.MultipleEnvelopeObjects`
+- `ContextAssistSettings.CustomActions`
+- `ActionCatalog.Defaults`
+- `SelectionContext.HasOtherBlocks`
+- `ContextAction.Requirement`
 
-Der Konstruktor ist jetzt `internal`:
+## Installation
 
-```csharp
-internal CommandSearchWindow(
-    IEnumerable<ContextAction> actions,
-    Action<ContextAction> execute)
-```
+1. `ActionService.cs` aus dem GitHub-Repository löschen.
+2. Die vorhandene `RhinoContextAssist.csproj` durch die Datei aus diesem Paket ersetzen.
+3. Weitere Dateien laut `DELETE_THESE_LEGACY_FILES.txt` löschen.
+4. Committen und GitHub Actions erneut starten.
 
-Damit stimmen die Sichtbarkeiten überein.
+Die neue Projektdatei schließt alte Dateien zusätzlich vom Build aus, falls eine davon versehentlich im Repository verbleibt.
