@@ -1,15 +1,16 @@
-# Rhino Context Assist 1.5.2 Command Learning
+# Rhino Context Assist 1.5.3 Direct Replacement
 
-Ersetze im bestehenden 1.5.1-Projekt:
+Ersetze im GitHub-Repository direkt:
 
-- ActionCatalog.cs
-- ContextAssistPopup.xaml.cs
+- `ActionCatalog.cs`
+- `ContextAssistPopup.xaml`
 
-Die bestehende `ContextAssistPopup.xaml` aus Version 1.5 bleibt bestehen.
+Keine Skripte und keine manuellen Änderungen erforderlich.
 
-## Verhalten
+## Änderungen
 
-- Hauptbuttons zeigen den tatsächlichen deutschen Rhino-Befehlsnamen.
-- Einträge unter `Mehr` zeigen darunter eine kleine Funktionsbeschreibung.
-- Tooltips zeigen deutschen Befehlsnamen, Beschreibung und englischen Makronamen.
-- Die Suche findet deutschen Befehlsnamen, Beschreibung, Kategorie und englischen Makronamen.
+- Der sichtbare deutsche Befehlsname lautet überall `Inset`.
+- Das interne sprachunabhängige Makro bleibt `_Inset`.
+- Erster Tooltip nach 180 ms.
+- Weitere Tooltips ohne erneute Verzögerung.
+- Maximale Tooltip-Anzeigedauer 12 Sekunden.

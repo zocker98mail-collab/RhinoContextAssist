@@ -7,14 +7,9 @@ internal static class ActionCatalog
         .ToArray();
 
     private static ContextAction A(
-        string id,
-        string icon,
-        string germanCommand,
-        string macro,
-        string description,
-        string category = "Bearbeiten",
-        bool destructive = false,
-        string requirement = "Any") =>
+        string id, string icon, string germanCommand, string macro,
+        string description, string category = "Bearbeiten",
+        bool destructive = false, string requirement = "Any") =>
         new(id, icon, germanCommand, macro, description, category, destructive, requirement);
 
     internal static IReadOnlyList<ContextAction> Defaults(SelectionKind kind) => kind switch
@@ -86,7 +81,7 @@ internal static class ActionCatalog
 
         SelectionKind.MeshFace => new[]
         {
-            A("inset", "▣", "Einfügen", "_Inset", "Polygonnetzfläche nach innen versetzen."),
+            A("inset", "▣", "Inset", "_Inset", "Kanten der ausgewählten Polygonnetzfläche nach innen versetzen."),
             A("extrude", "⇧", "PolygonnetzSeitenExtrudieren", "_ExtrudeMeshFaces", "Ausgewählte Polygonnetzfläche extrudieren."),
             A("extract", "⇱", "PolygonnetzSeitenExtrahieren", "_ExtractMeshFaces", "Ausgewählte Polygonnetzfläche lösen."),
             A("delete", "⌫", "PolygonnetzSeitenLöschen", "_DeleteMeshFaces", "Ausgewählte Polygonnetzfläche löschen.", "Kritisch", true)
@@ -119,7 +114,7 @@ internal static class ActionCatalog
         SelectionKind.SubDFace => new[]
         {
             A("extrude", "⇧", "SubDExtrudieren", "_ExtrudeSubD", "Ausgewählte SubD-Seite extrudieren."),
-            A("inset", "▣", "Einfügen", "_Inset", "Inset in der ausgewählten SubD-Seite erzeugen."),
+            A("inset", "▣", "Inset", "_Inset", "Kanten der ausgewählten SubD-Seite nach innen versetzen."),
             A("delete", "⌫", "Löschen", "_Delete", "Ausgewählte SubD-Seite löschen.", "Kritisch", true)
         },
 
@@ -168,7 +163,7 @@ internal static class ActionCatalog
         {
             A("fillet", "⌒", "KantenVerrunden", "_FilletEdge _FaceEdges", "Randkanten der ausgewählten Teilfläche abrunden."),
             A("chamfer", "◩", "KantenFasen", "_ChamferEdge _FaceEdges", "Randkanten der ausgewählten Teilfläche fasen."),
-            A("inset", "▣", "Einfügen", "_Inset", "Inset in der ausgewählten Teilfläche erzeugen."),
+            A("inset", "▣", "Inset", "_Inset", "Kanten der ausgewählten Teilfläche nach innen versetzen."),
             A("move", "✥", "SeiteVerschieben", "_MoveFace", "Ausgewählte Seite des Flächenverbands verschieben."),
             A("offset", "⇆", "Parallelfläche", "_OffsetSrf", "Ausgewählte Teilfläche parallel versetzen."),
             A("extract", "⇱", "FlächeLösen", "_ExtractSrf", "Ausgewählte Teilfläche aus dem Flächenverband lösen."),
@@ -190,7 +185,7 @@ internal static class ActionCatalog
     {
         List<ContextAction> actions = new List<ContextAction>
         {
-            A("inset", "▣", "Einfügen", "_Inset", "Inset in der Fläche erzeugen."),
+            A("inset", "▣", "Inset", "_Inset", "Kanten der Fläche nach innen versetzen."),
             A("offset", "⇆", "Parallelfläche", "_OffsetSrf", "Parallele Fläche in einem Abstand erzeugen."),
             A("extrude", "⇧", "FlächeExtrudieren", "_ExtrudeSrf", "Fläche extrudieren.", "Erzeugen"),
             A("border", "▣", "RandDuplizieren", "_DupBorder", "Randkurven der Fläche erzeugen.", "Erzeugen"),
