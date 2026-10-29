@@ -1,16 +1,25 @@
-# Rhino Context Assist 2.0 Hybrid HUD Preview
+# Rhino Context Assist 2.0.1 Search Window Build-Fix
 
-## Architektur
-- `ContextAssistHudConduit`: zeichnet Kontext, Hauptaktionen und Lern-Tooltip direkt in den aktiven Rhino-Viewport.
-- `ContextAssistMouseCallback`: Hover, Linksklick und Rechtsklick/Favorit ohne WPF-Fokus.
-- `CommandSearchWindow`: WPF wird nur noch für Suche, lange Listen und Scrollen verwendet.
+## Ersetzen
 
-## Bedienung
-- Linksklick auf HUD-Aktion: Befehl ausführen.
-- Rechtsklick: Favorit umschalten.
-- Hover: Lern-Tooltip nach 180 ms.
-- `Mehr`: WPF-Befehlssuche öffnen.
-- Doppelklick auf Suchergebnis: ausführen.
+Im Hybrid-HUD-Projekt ausschließlich diese Datei ersetzen:
 
-## Installation
-Repository-Inhalt vollständig ersetzen. Alte Dateien `ContextAssistPopup.xaml`, `ContextAssistPopup.xaml.cs`, `ContextToolbarForm.cs`, `ContextActionPolicy.cs`, `AssemblyInfo.cs` und `Properties/` löschen.
+- `CommandSearchWindow.xaml.cs`
+
+`CommandSearchWindow.xaml` bleibt unverändert.
+
+## Ursache
+
+Die WPF-Klasse muss wegen XAML öffentlich bleiben. Der bisherige öffentliche Konstruktor verwendete aber den internen Typ `ContextAction`. Dadurch war der Konstruktor sichtbarer als sein Parametertyp.
+
+## Korrektur
+
+Der Konstruktor ist jetzt `internal`:
+
+```csharp
+internal CommandSearchWindow(
+    IEnumerable<ContextAction> actions,
+    Action<ContextAction> execute)
+```
+
+Damit stimmen die Sichtbarkeiten überein.
