@@ -1,6 +1,4 @@
-using Rhino;using Rhino.Commands;using Rhino.UI;
+using Rhino;using Rhino.Commands;
 namespace RhinoContextAssist;
-public sealed class ContextAssistOptionenCommand:Command{public override string EnglishName=>"ContextAssistOptionen";protected override Result RunCommand(RhinoDoc d,RunMode m){RhinoApp.RunScript("_OptionsPage _Context Assist",false);return Result.Success;}}
 public sealed class ContextAssistWiederholenCommand:Command{public override string EnglishName=>"ContextAssistWiederholen";protected override Result RunCommand(RhinoDoc d,RunMode m){var a=ContextAssistPlugIn.Instance?.LastAction;if(a==null)return Result.Nothing;RhinoApp.RunScript(a.Macro,false);return Result.Success;}}
-public sealed class ContextAssistExportCommand:Command{public override string EnglishName=>"ContextAssistExport";protected override Result RunCommand(RhinoDoc d,RunMode m){var f=new SaveFileDialog{Filter="Context Assist (*.json)|*.json",FileName="ContextAssist.json"};if(!f.ShowSaveDialog())return Result.Cancel;ContextAssistPlugIn.Instance!.SettingsModel.Export(f.FileName);return Result.Success;}}
-public sealed class ContextAssistImportCommand:Command{public override string EnglishName=>"ContextAssistImport";protected override Result RunCommand(RhinoDoc d,RunMode m){var f=new OpenFileDialog{Filter="Context Assist (*.json)|*.json"};if(!f.ShowOpenDialog())return Result.Cancel;ContextAssistPlugIn.Instance!.SettingsModel.Import(f.FileName);return Result.Success;}}
+public sealed class ContextAssistOptionenCommand:Command{public override string EnglishName=>"ContextAssistOptionen";protected override Result RunCommand(RhinoDoc d,RunMode m){RhinoApp.RunScript("_OptionsPage _Context Assist",false);return Result.Success;}}

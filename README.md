@@ -1,11 +1,13 @@
-# Rhino Context Assist 1.4.3 UI und Aktionskatalog
+# Rhino Context Assist 1.5
 
-Ersetze im bestehenden 1.4.2-Projekt:
-- ActionCatalog.cs
-- ContextAssistOptionsPage.cs
+Vollständiges Projekt mit Kontextstufen, Smart Actions, Favoriten, erweiterten Unterobjektaktionen und Befehlssuche.
 
-Änderungen:
-- Einstellungsbuttons haben feste kompakte Breiten und 30 px Höhe.
-- Teilflächen bieten Abrunden und Fasen ihrer Randkanten sowie PushPull, Inset, Verschieben, Versetzen, Lösen, Rand duplizieren und Löschen.
-- Körper und Flächenverbände bieten wieder Abrunden und Fasen.
-- Umfangreiche Aktionen für Kurven, Flächen, Breps, Meshes, SubD, Blöcke und Mehrfachauswahl wiederhergestellt.
+## Neu
+- Kontextstufen: planar, offen, geschlossen, Unterobjekt, Mehrfachauswahl, Blockinstanz.
+- Smart Actions werden nur angezeigt, wenn die aktuelle Auswahl die Voraussetzung erfüllt.
+- Favorit per Rechtsklick auf eine Aktion oder in den Optionen umschalten.
+- Erweiterte Brep-, Mesh- und SubD-Unterobjektaktionen.
+- Suchfeld im Mehr-Menü durchsucht Beschriftung, Hinweis und Kategorie.
+
+## Repository
+Vor Upload alte Dateien vollständig ersetzen. Insbesondere löschen: ContextActionPolicy.cs, ContextToolbarForm.cs, AssemblyInfo.cs, Properties/, build-rhino-plugin.yml und manifest.yml in der Repository-Wurzel. Behalten: .github/workflows/build-rhino-plugin.yml und package/manifest.yml.
