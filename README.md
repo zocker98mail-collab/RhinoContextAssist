@@ -1,13 +1,12 @@
-# Rhino Context Assist 1.5
+# Rhino Context Assist 1.5.1 Options Build Fix
 
-Vollständiges Projekt mit Kontextstufen, Smart Actions, Favoriten, erweiterten Unterobjektaktionen und Befehlssuche.
+Ersetze im bestehenden 1.5-Projekt nur:
 
-## Neu
-- Kontextstufen: planar, offen, geschlossen, Unterobjekt, Mehrfachauswahl, Blockinstanz.
-- Smart Actions werden nur angezeigt, wenn die aktuelle Auswahl die Voraussetzung erfüllt.
-- Favorit per Rechtsklick auf eine Aktion oder in den Optionen umschalten.
-- Erweiterte Brep-, Mesh- und SubD-Unterobjektaktionen.
-- Suchfeld im Mehr-Menü durchsucht Beschriftung, Hinweis und Kategorie.
+- ContextAssistOptionsPage.cs
 
-## Repository
-Vor Upload alte Dateien vollständig ersetzen. Insbesondere löschen: ContextActionPolicy.cs, ContextToolbarForm.cs, AssemblyInfo.cs, Properties/, build-rhino-plugin.yml und manifest.yml in der Repository-Wurzel. Behalten: .github/workflows/build-rhino-plugin.yml und package/manifest.yml.
+Behoben:
+
+- Keine mehrfachen Deklarationen mit `var` oder target-typed `new()` mehr.
+- Alle Felder und lokalen Buttons werden einzeln deklariert.
+- Kompakte Buttonbreiten bleiben erhalten.
+- Favoriten und Aktionsreihenfolge bleiben enthalten.
