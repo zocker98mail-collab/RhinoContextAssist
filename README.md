@@ -1,12 +1,15 @@
-# Rhino Context Assist 1.5.1 Options Build Fix
+# Rhino Context Assist 1.5.2 Command Learning
 
-Ersetze im bestehenden 1.5-Projekt nur:
+Ersetze im bestehenden 1.5.1-Projekt:
 
-- ContextAssistOptionsPage.cs
+- ActionCatalog.cs
+- ContextAssistPopup.xaml.cs
 
-Behoben:
+Die bestehende `ContextAssistPopup.xaml` aus Version 1.5 bleibt bestehen.
 
-- Keine mehrfachen Deklarationen mit `var` oder target-typed `new()` mehr.
-- Alle Felder und lokalen Buttons werden einzeln deklariert.
-- Kompakte Buttonbreiten bleiben erhalten.
-- Favoriten und Aktionsreihenfolge bleiben enthalten.
+## Verhalten
+
+- Hauptbuttons zeigen den tatsächlichen deutschen Rhino-Befehlsnamen.
+- Einträge unter `Mehr` zeigen darunter eine kleine Funktionsbeschreibung.
+- Tooltips zeigen deutschen Befehlsnamen, Beschreibung und englischen Makronamen.
+- Die Suche findet deutschen Befehlsnamen, Beschreibung, Kategorie und englischen Makronamen.

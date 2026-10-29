@@ -1,25 +1,211 @@
 namespace RhinoContextAssist;
-internal static class ActionCatalog{
- internal static readonly SelectionKind[] Kinds=Enum.GetValues<SelectionKind>().Where(k=>k!=SelectionKind.None&&k!=SelectionKind.MultipleEnvelopeObjects).ToArray();
- static ContextAction A(string id,string i,string l,string m,string h,string c="Bearbeiten",bool d=false,string r="Any")=>new(id,i,l,m,h,c,d,r);
- internal static IReadOnlyList<ContextAction> Defaults(SelectionKind k)=>k switch{
- SelectionKind.PlanarBrepFace=>Face(true),SelectionKind.BrepFace=>Face(false),
- SelectionKind.BrepEdge=>new[]{A("fillet","⌒","Kante abrunden","_FilletEdge","Kante abrunden"),A("chamfer","◩","Kante fasen","_ChamferEdge","Kante fasen"),A("dupedge","⧉","Kante duplizieren","_DupEdge","Kante als Kurve duplizieren","Erzeugen")},
- SelectionKind.SolidBrep=>new[]{A("fillet","⌒","Kanten abrunden","_FilletEdge","Kanten auswählen und abrunden"),A("chamfer","◩","Kanten fasen","_ChamferEdge","Kanten auswählen und fasen"),A("shell","◫","Aushöhlen","_Shell","Körper aushöhlen"),A("offsetsrf","⇆","Flächen versetzen","_OffsetSrf","Flächen versetzen"),A("extractsrf","⇱","Fläche lösen","_ExtractSrf","Teilfläche lösen"),A("volume","V","Volumen","_Volume","Volumen ermitteln","Analyse"),A("area","A","Flächeninhalt","_Area","Flächeninhalt ermitteln","Analyse"),A("check","✓","Objekt prüfen","_Check","Objekt prüfen","Analyse")},
- SelectionKind.Brep=>new[]{A("cap","▰","Öffnungen schließen","_Cap","Planare Öffnungen schließen","Smart",false,"Open"),A("merge","▤","Coplanare Flächen vereinigen","_MergeAllCoplanarFaces","Coplanare Flächen vereinigen","Smart",false,"MultipleFaces"),A("fillet","⌒","Kanten abrunden","_FilletEdge","Kanten abrunden"),A("chamfer","◩","Kanten fasen","_ChamferEdge","Kanten fasen"),A("offsetsrf","⇆","Flächen versetzen","_OffsetSrf","Flächen versetzen"),A("shownaked","⊠","Offene Kanten anzeigen","_ShowEdges _NakedEdges","Offene Kanten anzeigen","Analyse"),A("explode","⤢","Zerlegen","_Explode","Flächenverband zerlegen","Kritisch",true)},
- SelectionKind.ClosedPlanarCurve=>new[]{A("solidextrude","⬒","Extrudieren und schließen","_ExtrudeCrv _Solid=_Yes","Körper erzeugen","Erzeugen"),A("planarsrf","▰","Fläche erzeugen","_PlanarSrf","Fläche erzeugen","Erzeugen"),A("pipe","◉","Rohr erzeugen","_Pipe","Rohr erzeugen","Erzeugen"),A("offset","⇆","Kurve versetzen","_Offset","Kurve versetzen"),A("hatch","▧","Schraffieren","_Hatch","Schraffur erzeugen","Dokumentation")},
- SelectionKind.Curve=>new[]{A("offset","⇆","Kurve versetzen","_Offset","Kurve versetzen"),A("pipe","◉","Rohr erzeugen","_Pipe","Rohr erzeugen","Erzeugen"),A("extrude","⇧","Kurve extrudieren","_ExtrudeCrv","Kurve extrudieren","Erzeugen"),A("rebuild","⟳","Neu aufbauen","_Rebuild","Kurve neu aufbauen"),A("length","↔","Länge","_Length","Länge ermitteln","Analyse"),A("dir","➜","Richtung","_Dir","Richtung anzeigen","Analyse")},
- SelectionKind.PlanarSurface=>Surface(true),SelectionKind.Surface=>Surface(false),
- SelectionKind.Mesh=>new[]{A("offsetmesh","⇆","Mesh versetzen","_OffsetMesh","Mesh versetzen"),A("reduce","▽","Mesh reduzieren","_ReduceMesh","Polygonzahl reduzieren"),A("quad","▦","Quad-Mesh erzeugen","_QuadRemesh","Quad-Mesh erzeugen","Konvertieren"),A("weld","⛓","Verschweißen","_Weld","Mesh verschweißen"),A("unify","⇧","Normalen vereinheitlichen","_UnifyMeshNormals","Normalen vereinheitlichen"),A("check","✓","Mesh prüfen","_Check","Mesh prüfen","Analyse")},
- SelectionKind.MeshFace=>new[]{A("inset","▣","Inset","_Inset","Inset erzeugen"),A("extrude","⇧","Mesh-Fläche extrudieren","_ExtrudeMeshFaces","Fläche extrudieren"),A("extract","⇱","Mesh-Fläche lösen","_ExtractMeshFaces","Fläche lösen"),A("delete","⌫","Mesh-Fläche löschen","_DeleteMeshFaces","Fläche löschen","Kritisch",true)},
- SelectionKind.MeshEdge=>new[]{A("split","✂","Mesh-Kante teilen","_SplitMeshEdge","Kante teilen"),A("swap","⇄","Mesh-Kante drehen","_SwapMeshEdge","Kante drehen"),A("weld","⛓","Verschweißen","_Weld","Verschweißen")},
- SelectionKind.MeshVertex=>new[]{A("move","✥","Punkt verschieben","_Move","Punkt verschieben"),A("smooth","≈","Glätten","_Smooth","Glätten"),A("align","≡","Ausrichten","_Align","Ausrichten")},
- SelectionKind.SubD=>new[]{A("extrude","⇧","SubD extrudieren","_ExtrudeSubD","SubD extrudieren"),A("insert","＋","Kante einsetzen","_InsertEdge","Kante einsetzen"),A("crease","⌁","Schärfen","_Crease","Schärfen"),A("smooth","⌒","Glätten","_RemoveCrease","Glätten"),A("reflect","◇","Symmetrie","_Reflect","Symmetrie"),A("tonurbs","▰","In NURBS umwandeln","_ToNURBS","Konvertieren","Konvertieren")},
- SelectionKind.SubDFace=>new[]{A("extrude","⇧","Fläche extrudieren","_ExtrudeSubD","Fläche extrudieren"),A("inset","▣","Inset","_Inset","Inset erzeugen"),A("delete","⌫","Fläche löschen","_Delete","Fläche löschen","Kritisch",true)},
- SelectionKind.SubDEdge=>new[]{A("crease","⌁","Kante schärfen","_Crease","Schärfen"),A("smooth","⌒","Kante glätten","_RemoveCrease","Glätten"),A("insert","＋","Kante einsetzen","_InsertEdge","Kante einsetzen")},
- SelectionKind.SubDVertex=>new[]{A("move","✥","Punkt verschieben","_Move","Punkt verschieben"),A("crease","◆","Punkt schärfen","_Crease","Schärfen"),A("smooth","◇","Punkt glätten","_RemoveCrease","Glätten")},
- SelectionKind.Block=>new[]{A("unique","◆","Einzigartigen Block erstellen","_CreateUniqueBlock","Eigene Definition","Block"),A("edit","✎","Block bearbeiten","_BlockEdit","Block bearbeiten","Block"),A("replace","⇄","Block ersetzen","_ReplaceBlock","Block ersetzen","Block",false,"OtherBlocks"),A("same","▦","Gleiche Blöcke auswählen","_SelBlockInstanceNamed","Gleiche Blöcke auswählen","Block"),A("manager","☷","Blockmanager","_BlockManager","Blockmanager öffnen","Block"),A("add","＋","Objekte hinzufügen","_AddObjectsToBlock","Objekte hinzufügen","Block"),A("reset","1:1","Maßstab zurücksetzen","_BlockResetScale","Maßstab zurücksetzen","Block"),A("explode","⤢","Block zerlegen","_ExplodeBlock","Block zerlegen","Kritisch",true)},
- SelectionKind.Multiple or SelectionKind.Mixed=>new[]{A("group","▦","Gruppieren","_Group","Gruppieren"),A("align","≡","Ausrichten","_Align","Ausrichten"),A("join","⛓","Verbinden","_Join","Verbinden"),A("union","∪","Vereinigen","_BooleanUnion","Vereinigen","Smart",false,"Multiple"),A("difference","−","Differenz","_BooleanDifference","Differenz","Kritisch",true,"Multiple"),A("intersection","∩","Schnittmenge","_BooleanIntersection","Schnittmenge","Smart",false,"Multiple")},_=>Array.Empty<ContextAction>()};
- static ContextAction[] Face(bool planar){var x=new List<ContextAction>{A("fillet","⌒","Kanten der Teilfläche abrunden","_FilletEdge _FaceEdges","Randkanten abrunden"),A("chamfer","◩","Kanten der Teilfläche fasen","_ChamferEdge _FaceEdges","Randkanten fasen"),A("inset","▣","Inset","_Inset","Inset erzeugen"),A("move","✥","Fläche verschieben","_MoveFace","Fläche verschieben"),A("offset","⇆","Fläche versetzen","_OffsetSrf","Fläche versetzen"),A("extract","⇱","Fläche lösen","_ExtractSrf","Fläche lösen"),A("border","▣","Rand duplizieren","_DupBorder","Rand duplizieren","Erzeugen"),A("delete","⌫","Fläche löschen","_Delete","Fläche löschen","Kritisch",true)};if(planar)x.Insert(2,A("pushpull","↕","Drücken/Ziehen","_PushPull","Drücken oder ziehen"));return x.ToArray();}
- static ContextAction[] Surface(bool planar){var x=new List<ContextAction>{A("inset","▣","Inset","_Inset","Inset"),A("offset","⇆","Fläche versetzen","_OffsetSrf","Versetzen"),A("extrude","⇧","Fläche extrudieren","_ExtrudeSrf","Extrudieren","Erzeugen"),A("border","▣","Rand duplizieren","_DupBorder","Rand duplizieren","Erzeugen"),A("rebuild","⟳","Neu aufbauen","_Rebuild","Neu aufbauen"),A("dir","➜","Richtung","_Dir","Richtung","Analyse"),A("zebra","≋","Zebraanalyse","_Zebra","Analyse","Analyse")};if(planar)x.Insert(0,A("pushpull","↕","Drücken/Ziehen","_PushPull","Drücken oder ziehen"));return x.ToArray();}
+
+internal static class ActionCatalog
+{
+    internal static readonly SelectionKind[] Kinds = Enum.GetValues<SelectionKind>()
+        .Where(kind => kind != SelectionKind.None && kind != SelectionKind.MultipleEnvelopeObjects)
+        .ToArray();
+
+    private static ContextAction A(
+        string id,
+        string icon,
+        string germanCommand,
+        string macro,
+        string description,
+        string category = "Bearbeiten",
+        bool destructive = false,
+        string requirement = "Any") =>
+        new(id, icon, germanCommand, macro, description, category, destructive, requirement);
+
+    internal static IReadOnlyList<ContextAction> Defaults(SelectionKind kind) => kind switch
+    {
+        SelectionKind.PlanarBrepFace => FaceActions(true),
+        SelectionKind.BrepFace => FaceActions(false),
+
+        SelectionKind.BrepEdge => new[]
+        {
+            A("fillet", "⌒", "KantenVerrunden", "_FilletEdge", "Ausgewählte Kante abrunden."),
+            A("chamfer", "◩", "KantenFasen", "_ChamferEdge", "Ausgewählte Kante fasen."),
+            A("dupedge", "⧉", "KanteDuplizieren", "_DupEdge", "Ausgewählte Kante als Kurve duplizieren.", "Erzeugen")
+        },
+
+        SelectionKind.SolidBrep => new[]
+        {
+            A("fillet", "⌒", "KantenVerrunden", "_FilletEdge", "Kanten des Körpers auswählen und abrunden."),
+            A("chamfer", "◩", "KantenFasen", "_ChamferEdge", "Kanten des Körpers auswählen und fasen."),
+            A("shell", "◫", "Schale", "_Shell", "Aus dem Volumenkörper einen Hohlkörper erzeugen."),
+            A("offsetsrf", "⇆", "Parallelfläche", "_OffsetSrf", "Flächen des Körpers parallel versetzen."),
+            A("extractsrf", "⇱", "FlächeLösen", "_ExtractSrf", "Ausgewählte Teilflächen aus dem Körper lösen."),
+            A("volume", "V", "Volumen", "_Volume", "Volumen des Körpers ermitteln.", "Analyse"),
+            A("area", "A", "Flächeninhalt", "_Area", "Oberflächeninhalt ermitteln.", "Analyse"),
+            A("check", "✓", "Prüfen", "_Check", "Objekt auf geometrische Fehler prüfen.", "Analyse")
+        },
+
+        SelectionKind.Brep => new[]
+        {
+            A("cap", "▰", "PlanareÖffnungenSchließen", "_Cap", "Planare Öffnungen des Flächenverbands schließen.", "Smart", false, "Open"),
+            A("merge", "▤", "AlleKoplanarenSeitenVereinigen", "_MergeAllCoplanarFaces", "Koplanare Seiten des Flächenverbands vereinigen.", "Smart", false, "MultipleFaces"),
+            A("fillet", "⌒", "KantenVerrunden", "_FilletEdge", "Kanten des Flächenverbands abrunden."),
+            A("chamfer", "◩", "KantenFasen", "_ChamferEdge", "Kanten des Flächenverbands fasen."),
+            A("offsetsrf", "⇆", "Parallelfläche", "_OffsetSrf", "Flächen parallel versetzen."),
+            A("shownaked", "⊠", "KantenAnzeigen", "_ShowEdges _NakedEdges", "Offene Kanten des Flächenverbands anzeigen.", "Analyse"),
+            A("explode", "⤢", "Explodieren", "_Explode", "Flächenverband in einzelne Flächen zerlegen.", "Kritisch", true)
+        },
+
+        SelectionKind.ClosedPlanarCurve => new[]
+        {
+            A("solidextrude", "⬒", "KurveExtrudieren", "_ExtrudeCrv _Solid=_Yes", "Geschlossene Kurve als Volumenkörper extrudieren.", "Erzeugen"),
+            A("planarsrf", "▰", "PlanareFläche", "_PlanarSrf", "Aus der geschlossenen Kurve eine planare Fläche erzeugen.", "Erzeugen"),
+            A("pipe", "◉", "Rohr", "_Pipe", "Rohr entlang der Kurve erzeugen.", "Erzeugen"),
+            A("offset", "⇆", "Versetzen", "_Offset", "Parallele Kurve in einem Abstand erzeugen."),
+            A("hatch", "▧", "Schraffierung", "_Hatch", "Schraffierung innerhalb der Kurve erzeugen.", "Dokumentation")
+        },
+
+        SelectionKind.Curve => new[]
+        {
+            A("offset", "⇆", "Versetzen", "_Offset", "Parallele Kurve in einem Abstand erzeugen."),
+            A("pipe", "◉", "Rohr", "_Pipe", "Rohr entlang der Kurve erzeugen.", "Erzeugen"),
+            A("extrude", "⇧", "KurveExtrudieren", "_ExtrudeCrv", "Kurve zu einer Fläche extrudieren.", "Erzeugen"),
+            A("rebuild", "⟳", "NeuAufbauen", "_Rebuild", "Kurve mit neuer Punkt- und Gradverteilung neu aufbauen."),
+            A("length", "↔", "Länge", "_Length", "Länge der Kurve ermitteln.", "Analyse"),
+            A("dir", "➜", "Richtung", "_Dir", "Richtung der Kurve anzeigen oder umkehren.", "Analyse")
+        },
+
+        SelectionKind.PlanarSurface => SurfaceActions(true),
+        SelectionKind.Surface => SurfaceActions(false),
+
+        SelectionKind.Mesh => new[]
+        {
+            A("offsetmesh", "⇆", "PolygonnetzVersetzen", "_OffsetMesh", "Polygonnetz parallel versetzen."),
+            A("reduce", "▽", "PolygonnetzReduzieren", "_ReduceMesh", "Polygonanzahl des Polygonnetzes reduzieren."),
+            A("quad", "▦", "QuadRemesh", "_QuadRemesh", "Quad-basiertes Polygonnetz erzeugen.", "Konvertieren"),
+            A("weld", "⛓", "Verschweißen", "_Weld", "Polygonnetzpunkte entlang gemeinsamer Kanten verschweißen."),
+            A("unify", "⇧", "PolygonnetzNormalenVereinheitlichen", "_UnifyMeshNormals", "Normalenrichtungen vereinheitlichen."),
+            A("check", "✓", "Prüfen", "_Check", "Polygonnetz auf Fehler prüfen.", "Analyse")
+        },
+
+        SelectionKind.MeshFace => new[]
+        {
+            A("inset", "▣", "Einfügen", "_Inset", "Polygonnetzfläche nach innen versetzen."),
+            A("extrude", "⇧", "PolygonnetzSeitenExtrudieren", "_ExtrudeMeshFaces", "Ausgewählte Polygonnetzfläche extrudieren."),
+            A("extract", "⇱", "PolygonnetzSeitenExtrahieren", "_ExtractMeshFaces", "Ausgewählte Polygonnetzfläche lösen."),
+            A("delete", "⌫", "PolygonnetzSeitenLöschen", "_DeleteMeshFaces", "Ausgewählte Polygonnetzfläche löschen.", "Kritisch", true)
+        },
+
+        SelectionKind.MeshEdge => new[]
+        {
+            A("split", "✂", "PolygonnetzKanteTeilen", "_SplitMeshEdge", "Ausgewählte Polygonnetzkante teilen."),
+            A("swap", "⇄", "PolygonnetzKanteTauschen", "_SwapMeshEdge", "Diagonale einer Polygonnetzfläche tauschen."),
+            A("weld", "⛓", "Verschweißen", "_Weld", "Polygonnetz entlang gemeinsamer Kanten verschweißen.")
+        },
+
+        SelectionKind.MeshVertex => new[]
+        {
+            A("move", "✥", "Verschieben", "_Move", "Ausgewählten Polygonnetzpunkt verschieben."),
+            A("smooth", "≈", "Glätten", "_Smooth", "Ausgewählte Polygonnetzpunkte glätten."),
+            A("align", "≡", "Ausrichten", "_Align", "Ausgewählte Punkte ausrichten.")
+        },
+
+        SelectionKind.SubD => new[]
+        {
+            A("extrude", "⇧", "SubDExtrudieren", "_ExtrudeSubD", "SubD-Komponenten extrudieren."),
+            A("insert", "＋", "KanteEinfügen", "_InsertEdge", "Kante in das SubD einfügen."),
+            A("crease", "⌁", "Falzen", "_Crease", "SubD-Kanten oder Punkte schärfen."),
+            A("smooth", "⌒", "FalzEntfernen", "_RemoveCrease", "Schärfung von SubD-Kanten oder Punkten entfernen."),
+            A("reflect", "◇", "Reflektieren", "_Reflect", "Symmetrische SubD-Struktur erzeugen."),
+            A("tonurbs", "▰", "InNURBSUmwandeln", "_ToNURBS", "SubD in NURBS-Flächen umwandeln.", "Konvertieren")
+        },
+
+        SelectionKind.SubDFace => new[]
+        {
+            A("extrude", "⇧", "SubDExtrudieren", "_ExtrudeSubD", "Ausgewählte SubD-Seite extrudieren."),
+            A("inset", "▣", "Einfügen", "_Inset", "Inset in der ausgewählten SubD-Seite erzeugen."),
+            A("delete", "⌫", "Löschen", "_Delete", "Ausgewählte SubD-Seite löschen.", "Kritisch", true)
+        },
+
+        SelectionKind.SubDEdge => new[]
+        {
+            A("crease", "⌁", "Falzen", "_Crease", "Ausgewählte SubD-Kante schärfen."),
+            A("smooth", "⌒", "FalzEntfernen", "_RemoveCrease", "Schärfung der SubD-Kante entfernen."),
+            A("insert", "＋", "KanteEinfügen", "_InsertEdge", "Zusätzliche SubD-Kante einsetzen.")
+        },
+
+        SelectionKind.SubDVertex => new[]
+        {
+            A("move", "✥", "Verschieben", "_Move", "Ausgewählten SubD-Punkt verschieben."),
+            A("crease", "◆", "Falzen", "_Crease", "Ausgewählten SubD-Punkt schärfen."),
+            A("smooth", "◇", "FalzEntfernen", "_RemoveCrease", "Schärfung des SubD-Punkts entfernen.")
+        },
+
+        SelectionKind.Block => new[]
+        {
+            A("unique", "◆", "EinzigartigenBlockErzeugen", "_CreateUniqueBlock", "Eigene Blockdefinition aus der Instanz erzeugen.", "Block"),
+            A("edit", "✎", "BlockBearbeiten", "_BlockEdit", "Blockdefinition bearbeiten.", "Block"),
+            A("replace", "⇄", "BlockErsetzen", "_ReplaceBlock", "Blockinstanz durch eine andere Definition ersetzen.", "Block", false, "OtherBlocks"),
+            A("same", "▦", "BlockinstanzenAuswählen", "_SelBlockInstanceNamed", "Instanzen derselben Blockdefinition auswählen.", "Block"),
+            A("manager", "☷", "BlockManager", "_BlockManager", "Blockmanager öffnen.", "Block"),
+            A("add", "＋", "ObjekteZuBlockHinzufügen", "_AddObjectsToBlock", "Objekte zur Blockdefinition hinzufügen.", "Block"),
+            A("reset", "1:1", "BlockMaßstabZurücksetzen", "_BlockResetScale", "Skalierung der Blockinstanz zurücksetzen.", "Block"),
+            A("explode", "⤢", "BlockExplodieren", "_ExplodeBlock", "Blockinstanz vollständig zerlegen.", "Kritisch", true)
+        },
+
+        SelectionKind.Multiple or SelectionKind.Mixed => new[]
+        {
+            A("group", "▦", "Gruppieren", "_Group", "Ausgewählte Objekte gruppieren."),
+            A("align", "≡", "Ausrichten", "_Align", "Ausgewählte Objekte ausrichten."),
+            A("join", "⛓", "Verbinden", "_Join", "Ausgewählte Kurven oder Flächen verbinden."),
+            A("union", "∪", "BoolescheVereinigung", "_BooleanUnion", "Ausgewählte Körper vereinigen.", "Smart", false, "Multiple"),
+            A("difference", "−", "BoolescheDifferenz", "_BooleanDifference", "Körper voneinander abziehen.", "Kritisch", true, "Multiple"),
+            A("intersection", "∩", "BoolescheSchnittmenge", "_BooleanIntersection", "Gemeinsames Volumen erzeugen.", "Smart", false, "Multiple")
+        },
+
+        _ => Array.Empty<ContextAction>()
+    };
+
+    private static ContextAction[] FaceActions(bool planar)
+    {
+        List<ContextAction> actions = new List<ContextAction>
+        {
+            A("fillet", "⌒", "KantenVerrunden", "_FilletEdge _FaceEdges", "Randkanten der ausgewählten Teilfläche abrunden."),
+            A("chamfer", "◩", "KantenFasen", "_ChamferEdge _FaceEdges", "Randkanten der ausgewählten Teilfläche fasen."),
+            A("inset", "▣", "Einfügen", "_Inset", "Inset in der ausgewählten Teilfläche erzeugen."),
+            A("move", "✥", "SeiteVerschieben", "_MoveFace", "Ausgewählte Seite des Flächenverbands verschieben."),
+            A("offset", "⇆", "Parallelfläche", "_OffsetSrf", "Ausgewählte Teilfläche parallel versetzen."),
+            A("extract", "⇱", "FlächeLösen", "_ExtractSrf", "Ausgewählte Teilfläche aus dem Flächenverband lösen."),
+            A("border", "▣", "RandDuplizieren", "_DupBorder", "Randkurven der ausgewählten Teilfläche erzeugen.", "Erzeugen"),
+            A("delete", "⌫", "Löschen", "_Delete", "Ausgewählte Teilfläche löschen.", "Kritisch", true)
+        };
+
+        if (planar)
+        {
+            actions.Insert(2,
+                A("pushpull", "↕", "DrückenZiehen", "_PushPull",
+                    "Planare Teilfläche interaktiv drücken oder ziehen."));
+        }
+
+        return actions.ToArray();
+    }
+
+    private static ContextAction[] SurfaceActions(bool planar)
+    {
+        List<ContextAction> actions = new List<ContextAction>
+        {
+            A("inset", "▣", "Einfügen", "_Inset", "Inset in der Fläche erzeugen."),
+            A("offset", "⇆", "Parallelfläche", "_OffsetSrf", "Parallele Fläche in einem Abstand erzeugen."),
+            A("extrude", "⇧", "FlächeExtrudieren", "_ExtrudeSrf", "Fläche extrudieren.", "Erzeugen"),
+            A("border", "▣", "RandDuplizieren", "_DupBorder", "Randkurven der Fläche erzeugen.", "Erzeugen"),
+            A("rebuild", "⟳", "NeuAufbauen", "_Rebuild", "Fläche neu aufbauen."),
+            A("dir", "➜", "Richtung", "_Dir", "Flächenrichtung anzeigen oder umkehren.", "Analyse"),
+            A("zebra", "≋", "Zebra", "_Zebra", "Flächenübergänge mit Zebraanalyse prüfen.", "Analyse")
+        };
+
+        if (planar)
+        {
+            actions.Insert(0,
+                A("pushpull", "↕", "DrückenZiehen", "_PushPull",
+                    "Planare Fläche interaktiv drücken oder ziehen."));
+        }
+
+        return actions.ToArray();
+    }
 }
