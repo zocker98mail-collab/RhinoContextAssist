@@ -44,6 +44,20 @@ internal sealed class ContextAssistController : IDisposable
         OpenForCurrentSelection(doc);
     }
 
+    public void RefreshConduitSettings()
+    {
+        _conduit.ShowAnchorDot = _settings.ShowViewportAnchor;
+        _conduit.ShowTetherLine = _settings.ShowTetherLine;
+        _conduit.TetherOpacity = _settings.TetherLineOpacity;
+        _conduit.TetherThickness = (float)_settings.TetherLineThickness;
+
+        if (_popup is { IsVisible: true })
+        {
+            _popup.RepositionAndClamp();
+            RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();
+        }
+    }
+
     private void OnSelectionChanged(object? sender, RhinoObjectSelectionEventArgs e)
     {
         ClosePopupAndConduit();
@@ -100,6 +114,8 @@ internal sealed class ContextAssistController : IDisposable
             _conduit.AnchorWorld = context.Anchor;
             _conduit.ShowAnchorDot = _settings.ShowViewportAnchor;
             _conduit.ShowTetherLine = _settings.ShowTetherLine;
+            _conduit.TetherOpacity = _settings.TetherLineOpacity;
+            _conduit.TetherThickness = (float)_settings.TetherLineThickness;
             _conduit.ActiveViewportId = _lastViewportId;
             _conduit.Enabled = true;
             activeView?.Redraw();

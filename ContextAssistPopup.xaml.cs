@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -30,6 +31,9 @@ public partial class ContextAssistPopup : Window
     private DateTime? _leaveStart;
     private bool _expanded;
     private PopupPositionMode _activeMode;
+    private bool _userManuallyDragged;
+    private bool _hiddenDueToOffscreen;
+    private WpfPoint _lastProjectedAnchor = new(double.NaN, double.NaN);
 
     internal ContextAssistPopup(
         Action<ContextAction> execute,
@@ -43,7 +47,7 @@ public partial class ContextAssistPopup : Window
         _settings = settings;
         _conduit = conduit;
         _timer = new DispatcherTimer(
-            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(40),
             DispatcherPriority.Background,
             (_, _) => Tick(),
             Dispatcher);
@@ -158,9 +162,14 @@ public partial class ContextAssistPopup : Window
         ContextAction action,
         string englishCommand)
     {
-        return $"{action.Label}\n\n" +
-               $"{action.Hint}\n\n" +
-               $"Englischer Befehl / Makro: {englishCommand}\n" +
+        return $"{action.Label}
+
+" +
+               $"{action.Hint}
+
+" +
+               $"Englischer Befehl / Makro: {englishCommand}
+" +
                "Rechtsklick: Favorit umschalten";
     }
 
@@ -222,6 +231,8 @@ public partial class ContextAssistPopup : Window
     {
         _context = context;
         _activeMode = mode;
+        _userManuallyDragged = false;
+        _hiddenDueToOffscreen = false;
         _lastInteraction = DateTime.UtcNow;
 
         bool initialExpanded = _settings.UxMode == PopupUxMode.Direct;
@@ -231,7 +242,6 @@ public partial class ContextAssistPopup : Window
 
         Opacity = _settings.IdleOpacity / 100d;
 
-        // Erst anzeigen und Layout aktualisieren, damit ActualWidth & ActualHeight echt gemessen werden
         Show();
         MeasureAndUpdateLayout();
         RepositionAndClamp();
@@ -258,7 +268,13 @@ public partial class ContextAssistPopup : Window
         var (popupWidth, popupHeight) = MeasureAndUpdateLayout();
         Rect bounds = GetActiveViewportBounds();
 
-        WpfPoint target = CalculatePosition(_context, _activeMode, bounds, popupWidth, popupHeight);
+        WpfPoint target = _userManuallyDragged
+            ? new WpfPoint(Left, Top)
+            : CalculatePosition(_context, _activeMode, bounds, popupWidth, popupHeight);
+
+        if (_settings.EnableEdgeSnapping)
+            target = ApplyMagneticEdgeSnapping(target, bounds, popupWidth, popupHeight);
+
         WpfPoint clamped = ClampToBounds(target, bounds, popupWidth, popupHeight);
 
         Left = clamped.X;
@@ -275,7 +291,6 @@ public partial class ContextAssistPopup : Window
         double spaceBelow = bounds.Bottom - (Top + popupHeight) - 16;
         double spaceAbove = Top - bounds.Top - 16;
 
-        // Wenn unten weniger als 260 px Platz ist und oben mehr Platz zur Verfügung steht, öffne das Mehr-Menü nach oben
         if (spaceBelow < 260 && spaceAbove > spaceBelow)
         {
             More.Placement = PlacementMode.Top;
@@ -329,6 +344,7 @@ public partial class ContextAssistPopup : Window
             projected = new WpfPoint(
                 viewportRect.Left + client.X,
                 viewportRect.Top + client.Y);
+            _lastProjectedAnchor = projected;
         }
 
         if (mode == PopupPositionMode.Mouse)
@@ -338,7 +354,24 @@ public partial class ContextAssistPopup : Window
             return new WpfPoint(projected.X - popupWidth / 2, projected.Y - popupHeight - 18);
 
         if (mode == PopupPositionMode.GeometryOffset)
-            return new WpfPoint(projected.X + 48, projected.Y - popupHeight - 36);
+        {
+            // Dynamischer Offset: verschiebt die Toolbar leicht vom Zentrum weg Richtung freier Viewport-Seite
+            double baseOffset = Math.Max(16, _settings.DynamicOffsetPx);
+            double centerX = viewportRect.Left + viewportRect.Width / 2.0;
+            double centerY = viewportRect.Top + viewportRect.Height / 2.0;
+
+            double dirX = projected.X <= centerX ? 1.0 : -1.0;
+            double dirY = projected.Y >= centerY ? -1.0 : 1.0;
+
+            double x = dirX > 0
+                ? projected.X + baseOffset
+                : projected.X - popupWidth - baseOffset;
+            double y = dirY < 0
+                ? projected.Y - popupHeight - baseOffset * 0.75
+                : projected.Y + baseOffset * 0.75;
+
+            return new WpfPoint(x, y);
+        }
 
         double margin = Math.Max(12, _settings.CornerMarginPx);
         double safeRightX = Math.Max(viewportRect.Left + 12, viewportRect.Right - margin - popupWidth);
@@ -357,7 +390,6 @@ public partial class ContextAssistPopup : Window
         if (mode != PopupPositionMode.AutoViewportCorner)
             return corners.TryGetValue(mode, out var fixedCorner) ? fixedCorner : corners[PopupPositionMode.TopRight];
 
-        // Berechne Abstand zwischen dem Zentrum der Toolbar in jeder Ecke und der projizierten Geometrie
         double ScoreCorner(PopupPositionMode cornerMode)
         {
             WpfPoint topLeft = corners[cornerMode];
@@ -382,6 +414,36 @@ public partial class ContextAssistPopup : Window
         return corners[bestCorner];
     }
 
+    private WpfPoint ApplyMagneticEdgeSnapping(
+        WpfPoint desired,
+        Rect viewportRect,
+        double popupWidth,
+        double popupHeight)
+    {
+        double margin = Math.Max(12, _settings.CornerMarginPx);
+        double snapDist = Math.Max(8, _settings.EdgeSnapDistancePx);
+
+        double leftEdge = viewportRect.Left + margin;
+        double rightEdge = viewportRect.Right - margin - popupWidth;
+        double topEdge = viewportRect.Top + margin;
+        double bottomEdge = viewportRect.Bottom - margin - popupHeight;
+
+        double x = desired.X;
+        double y = desired.Y;
+
+        if (Math.Abs(x - leftEdge) <= snapDist)
+            x = leftEdge;
+        else if (Math.Abs(x - rightEdge) <= snapDist)
+            x = rightEdge;
+
+        if (Math.Abs(y - topEdge) <= snapDist)
+            y = topEdge;
+        else if (Math.Abs(y - bottomEdge) <= snapDist)
+            y = bottomEdge;
+
+        return new WpfPoint(x, y);
+    }
+
     private WpfPoint ClampToBounds(WpfPoint desired, Rect viewportRect, double popupWidth, double popupHeight)
     {
         Rect workArea = SystemParameters.WorkArea;
@@ -391,7 +453,6 @@ public partial class ContextAssistPopup : Window
 
         double pad = Math.Min(16, Math.Max(8, _settings.CornerMarginPx / 4.0));
 
-        // Wenn das Mehr-Menü nach unten geöffnet ist, lasse nach Möglichkeit Platz für das Dropdown
         double extraBottom = (More.IsOpen && More.Placement == PlacementMode.Bottom)
             ? Math.Min(240, Math.Max(0, safeRect.Height - popupHeight - pad * 2))
             : 0;
@@ -428,6 +489,12 @@ public partial class ContextAssistPopup : Window
     private void Tick()
     {
         if (!IsVisible)
+            return;
+
+        // 1. Prüfe Kamera-/Viewport-Bewegung und Offscreen-Status des 3D-Ankers
+        UpdateCameraTrackingAndOcclusion();
+
+        if (_hiddenDueToOffscreen)
             return;
 
         DateTime now = DateTime.UtcNow;
@@ -471,6 +538,83 @@ public partial class ContextAssistPopup : Window
         }
     }
 
+    private void UpdateCameraTrackingAndOcclusion()
+    {
+        if (!_context.Anchor.IsValid)
+            return;
+
+        var view = RhinoDoc.ActiveDoc?.Views.ActiveView;
+        if (view == null)
+            return;
+
+        bool visibleInViewport = ContextAssistAnchorConduit.CheckAnchorVisible(
+            view.ActiveViewport,
+            _context.Anchor,
+            out var clientPt);
+
+        if (_settings.AutoHideWhenAnchorOffscreen)
+        {
+            if (!visibleInViewport)
+            {
+                if (!_hiddenDueToOffscreen)
+                {
+                    _hiddenDueToOffscreen = true;
+                    More.IsOpen = false;
+                    IsHitTestVisible = false;
+                    FadeTo(0.0);
+                }
+                return;
+            }
+
+            if (_hiddenDueToOffscreen)
+            {
+                _hiddenDueToOffscreen = false;
+                IsHitTestVisible = true;
+                _lastInteraction = DateTime.UtcNow;
+                FadeTo((IsMouseOver ? _settings.ActiveOpacity : _settings.IdleOpacity) / 100d);
+            }
+        }
+
+        var vRect = view.ScreenRectangle;
+        var currentProjected = new WpfPoint(vRect.Left + clientPt.X, vRect.Top + clientPt.Y);
+
+        if (double.IsNaN(_lastProjectedAnchor.X) || Distance(currentProjected, _lastProjectedAnchor) >= 1.5)
+        {
+            _lastProjectedAnchor = currentProjected;
+
+            bool shouldFollow = _settings.FollowCameraMovement &&
+                                !_userManuallyDragged &&
+                                (_activeMode is PopupPositionMode.Geometry or PopupPositionMode.GeometryOffset or PopupPositionMode.AutoViewportCorner);
+
+            if (shouldFollow && !IsMouseOver && !More.IsOpen)
+            {
+                RepositionAndClamp();
+            }
+            else if (_conduit is { Enabled: true })
+            {
+                view.Redraw();
+            }
+        }
+    }
+
+    private void HeaderBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ButtonState == MouseButtonState.Pressed)
+        {
+            _userManuallyDragged = true;
+            try
+            {
+                DragMove();
+            }
+            catch
+            {
+                // Ignoriere DragMove-Ausnahmen
+            }
+
+            RepositionAndClamp();
+        }
+    }
+
     private void SetExpanded(bool expanded)
     {
         _expanded = expanded;
@@ -489,7 +633,7 @@ public partial class ContextAssistPopup : Window
     {
         BeginAnimation(
             OpacityProperty,
-            new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(130)));
+            new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(120)));
     }
 
     private void InitializeNativeWindow(object? sender, EventArgs e)

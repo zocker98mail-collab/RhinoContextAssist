@@ -1,10 +1,18 @@
+using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Rhino;
 
 namespace RhinoContextAssist;
 
 internal sealed class ContextAssistSettings
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     private readonly PersistentSettings _store;
 
     public bool Enabled { get; set; }
@@ -21,9 +29,16 @@ internal sealed class ContextAssistSettings
     public int IdleOpacity { get; set; }
     public int ActiveOpacity { get; set; }
 
-    // Neue Option für den leichten Hybrid-Anker-Conduit
+    // Hybrid-Conduit & Dynamische Positionierung
     public bool ShowViewportAnchor { get; set; }
     public bool ShowTetherLine { get; set; }
+    public int TetherLineOpacity { get; set; }
+    public double TetherLineThickness { get; set; }
+    public bool FollowCameraMovement { get; set; }
+    public bool AutoHideWhenAnchorOffscreen { get; set; }
+    public int DynamicOffsetPx { get; set; }
+    public bool EnableEdgeSnapping { get; set; }
+    public int EdgeSnapDistancePx { get; set; }
 
     public List<ContextAction> CustomActions { get; } = new();
     public Dictionary<SelectionKind, List<ActionPreference>> Preferences { get; } = new();
@@ -54,6 +69,13 @@ internal sealed class ContextAssistSettings
 
         ShowViewportAnchor = _store.GetBool("ShowViewportAnchor", true);
         ShowTetherLine = _store.GetBool("ShowTetherLine", false);
+        TetherLineOpacity = Math.Clamp(_store.GetInteger("TetherLineOpacity", 115), 20, 255);
+        TetherLineThickness = Math.Clamp(_store.GetDouble("TetherLineThickness", 1.5), 0.5, 5.0);
+        FollowCameraMovement = _store.GetBool("FollowCameraMovement", true);
+        AutoHideWhenAnchorOffscreen = _store.GetBool("AutoHideWhenAnchorOffscreen", true);
+        DynamicOffsetPx = Math.Clamp(_store.GetInteger("DynamicOffsetPx", 48), 0, 200);
+        EnableEdgeSnapping = _store.GetBool("EnableEdgeSnapping", true);
+        EdgeSnapDistancePx = Math.Clamp(_store.GetInteger("EdgeSnapDistancePx", 28), 8, 80);
 
         CustomActions.Clear();
         try
@@ -65,7 +87,7 @@ internal sealed class ContextAssistSettings
         }
         catch
         {
-            // Ignoriere beschädigtes JSON und nutze leere Liste
+            // Ignoriere beschädigtes JSON
         }
 
         Usage.Clear();
@@ -87,16 +109,7 @@ internal sealed class ContextAssistSettings
         Preferences.Clear();
         foreach (var kind in ActionCatalog.Kinds)
         {
-            var defaults = ActionCatalog.Defaults(kind)
-                .Select(x => new ActionPreference(x.Id, true, false))
-                .ToList();
-
-            // Envelope-Aktion für passende Typen vormerken, damit auch diese favorisiert/sortiert werden kann
-            if (kind is SelectionKind.SolidBrep or SelectionKind.Brep or SelectionKind.Mesh or SelectionKind.Multiple)
-            {
-                if (defaults.All(x => x.Id != "boundingboxcurves"))
-                    defaults.Add(new ActionPreference("boundingboxcurves", true, false));
-            }
+            var defaults = BuildDefaultPreferencesForKind(kind);
 
             try
             {
@@ -106,14 +119,7 @@ internal sealed class ContextAssistSettings
                     var savedPrefs = JsonSerializer.Deserialize<List<ActionPreference>>(prefJson);
                     if (savedPrefs is { Count: > 0 })
                     {
-                        // Behalte die gespeicherte Reihenfolge & Favoriten bei und ergänze evtl. neue Standardaktionen am Ende
-                        var merged = new List<ActionPreference>(savedPrefs);
-                        foreach (var def in defaults)
-                        {
-                            if (merged.All(p => p.Id != def.Id))
-                                merged.Add(def);
-                        }
-                        Preferences[kind] = merged;
+                        Preferences[kind] = MergePreferencesWithDefaults(savedPrefs, defaults);
                         continue;
                     }
                 }
@@ -125,6 +131,34 @@ internal sealed class ContextAssistSettings
 
             Preferences[kind] = defaults;
         }
+    }
+
+    private static List<ActionPreference> BuildDefaultPreferencesForKind(SelectionKind kind)
+    {
+        var defaults = ActionCatalog.Defaults(kind)
+            .Select(x => new ActionPreference(x.Id, true, false))
+            .ToList();
+
+        if (kind is SelectionKind.SolidBrep or SelectionKind.Brep or SelectionKind.Mesh or SelectionKind.Multiple)
+        {
+            if (defaults.All(x => x.Id != "boundingboxcurves"))
+                defaults.Add(new ActionPreference("boundingboxcurves", true, false));
+        }
+
+        return defaults;
+    }
+
+    private static List<ActionPreference> MergePreferencesWithDefaults(
+        List<ActionPreference> savedPrefs,
+        List<ActionPreference> defaults)
+    {
+        var merged = new List<ActionPreference>(savedPrefs);
+        foreach (var def in defaults)
+        {
+            if (merged.All(p => p.Id != def.Id))
+                merged.Add(def);
+        }
+        return merged;
     }
 
     public void Save()
@@ -146,6 +180,13 @@ internal sealed class ContextAssistSettings
 
         _store.SetBool("ShowViewportAnchor", ShowViewportAnchor);
         _store.SetBool("ShowTetherLine", ShowTetherLine);
+        _store.SetInteger("TetherLineOpacity", TetherLineOpacity);
+        _store.SetDouble("TetherLineThickness", TetherLineThickness);
+        _store.SetBool("FollowCameraMovement", FollowCameraMovement);
+        _store.SetBool("AutoHideWhenAnchorOffscreen", AutoHideWhenAnchorOffscreen);
+        _store.SetInteger("DynamicOffsetPx", DynamicOffsetPx);
+        _store.SetBool("EnableEdgeSnapping", EnableEdgeSnapping);
+        _store.SetInteger("EdgeSnapDistancePx", EdgeSnapDistancePx);
 
         _store.SetString("Custom", JsonSerializer.Serialize(CustomActions));
         _store.SetString("Usage", JsonSerializer.Serialize(Usage));
@@ -153,7 +194,123 @@ internal sealed class ContextAssistSettings
         foreach (var p in Preferences)
             _store.SetString("Preferences." + p.Key, JsonSerializer.Serialize(p.Value));
 
-        RhinoApp.WriteLine(); // Stellt sicher, dass Rhino die Plug-in-Settings im Speicher aktualisiert
+        ContextAssistPlugIn.Instance?.SaveSettings();
+    }
+
+    public void ExportToFile(string filePath)
+    {
+        var prefDict = Preferences.ToDictionary(k => k.Key.ToString(), v => v.Value);
+        var dto = new SettingsExportDto(
+            Version: "2.2-StableHybrid",
+            ExportedUtc: DateTime.UtcNow,
+            Enabled: Enabled,
+            AutomaticPrioritization: AutomaticPrioritization,
+            PrimaryCount: PrimaryCount,
+            UxMode: UxMode,
+            PositionMode: PositionMode,
+            SelectionDelayMs: SelectionDelayMs,
+            HoverDelayMs: HoverDelayMs,
+            CollapseDelayMs: CollapseDelayMs,
+            MoreCollapseDelayMs: MoreCollapseDelayMs,
+            AutoHideMs: AutoHideMs,
+            CornerMarginPx: CornerMarginPx,
+            IdleOpacity: IdleOpacity,
+            ActiveOpacity: ActiveOpacity,
+            ShowViewportAnchor: ShowViewportAnchor,
+            ShowTetherLine: ShowTetherLine,
+            TetherLineOpacity: TetherLineOpacity,
+            TetherLineThickness: TetherLineThickness,
+            FollowCameraMovement: FollowCameraMovement,
+            AutoHideWhenAnchorOffscreen: AutoHideWhenAnchorOffscreen,
+            DynamicOffsetPx: DynamicOffsetPx,
+            EnableEdgeSnapping: EnableEdgeSnapping,
+            EdgeSnapDistancePx: EdgeSnapDistancePx,
+            CustomActions: CustomActions.ToList(),
+            Preferences: prefDict,
+            Usage: new Dictionary<string, UsageEntry>(Usage));
+
+        string json = JsonSerializer.Serialize(dto, JsonOptions);
+        File.WriteAllText(filePath, json);
+    }
+
+    public bool ImportFromFile(string filePath, out string message)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                message = "Datei wurde nicht gefunden.";
+                return false;
+            }
+
+            string json = File.ReadAllText(filePath);
+            var dto = JsonSerializer.Deserialize<SettingsExportDto>(json, JsonOptions);
+            if (dto == null)
+            {
+                message = "Ungültiges Einstellungsformat.";
+                return false;
+            }
+
+            Enabled = dto.Enabled;
+            AutomaticPrioritization = dto.AutomaticPrioritization;
+            PrimaryCount = Math.Clamp(dto.PrimaryCount, 1, 8);
+            UxMode = dto.UxMode;
+            PositionMode = dto.PositionMode;
+
+            SelectionDelayMs = Math.Clamp(dto.SelectionDelayMs, 50, 2000);
+            HoverDelayMs = Math.Clamp(dto.HoverDelayMs, 50, 2000);
+            CollapseDelayMs = Math.Clamp(dto.CollapseDelayMs, 100, 5000);
+            MoreCollapseDelayMs = Math.Clamp(dto.MoreCollapseDelayMs, 200, 10000);
+            AutoHideMs = Math.Clamp(dto.AutoHideMs, 0, 30000);
+            CornerMarginPx = Math.Clamp(dto.CornerMarginPx, 20, 350);
+            IdleOpacity = Math.Clamp(dto.IdleOpacity, 15, 100);
+            ActiveOpacity = Math.Clamp(dto.ActiveOpacity, 30, 100);
+
+            ShowViewportAnchor = dto.ShowViewportAnchor;
+            ShowTetherLine = dto.ShowTetherLine;
+            TetherLineOpacity = Math.Clamp(dto.TetherLineOpacity > 0 ? dto.TetherLineOpacity : 115, 20, 255);
+            TetherLineThickness = Math.Clamp(dto.TetherLineThickness > 0 ? dto.TetherLineThickness : 1.5, 0.5, 5.0);
+            FollowCameraMovement = dto.FollowCameraMovement;
+            AutoHideWhenAnchorOffscreen = dto.AutoHideWhenAnchorOffscreen;
+            DynamicOffsetPx = Math.Clamp(dto.DynamicOffsetPx, 0, 200);
+            EnableEdgeSnapping = dto.EnableEdgeSnapping;
+            EdgeSnapDistancePx = Math.Clamp(dto.EdgeSnapDistancePx > 0 ? dto.EdgeSnapDistancePx : 28, 8, 80);
+
+            CustomActions.Clear();
+            if (dto.CustomActions != null)
+                CustomActions.AddRange(dto.CustomActions);
+
+            Usage.Clear();
+            if (dto.Usage != null)
+            {
+                foreach (var kv in dto.Usage)
+                    Usage[kv.Key] = kv.Value;
+            }
+
+            foreach (var kind in ActionCatalog.Kinds)
+            {
+                var defaults = BuildDefaultPreferencesForKind(kind);
+                if (dto.Preferences != null &&
+                    dto.Preferences.TryGetValue(kind.ToString(), out var importedPrefs) &&
+                    importedPrefs is { Count: > 0 })
+                {
+                    Preferences[kind] = MergePreferencesWithDefaults(importedPrefs, defaults);
+                }
+                else
+                {
+                    Preferences[kind] = defaults;
+                }
+            }
+
+            Save();
+            message = "Einstellungen erfolgreich importiert und gespeichert.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            message = $"Fehler beim Importieren: {ex.Message}";
+            return false;
+        }
     }
 
     internal IReadOnlyList<ContextAction> Order(SelectionKind k, List<ContextAction> a)

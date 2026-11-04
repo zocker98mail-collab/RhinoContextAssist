@@ -46,7 +46,12 @@
 
             <StackPanel x:Name="Expanded"
                         Visibility="Collapsed">
-                <Grid Margin="5,2">
+                <Grid x:Name="HeaderBar"
+                      Margin="5,2"
+                      Background="Transparent"
+                      Cursor="SizeAll"
+                      MouseLeftButtonDown="HeaderBar_MouseLeftButtonDown"
+                      ToolTip="Ziehen zum Verschieben (rastet optional magnetisch an Viewport-Rändern ein)">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />

@@ -45,9 +45,48 @@ internal sealed class ContextAssistOptionsControl : Panel
     private readonly NumericStepper _idleOpacity = CreateNumber(15, 100, 5);
     private readonly NumericStepper _activeOpacity = CreateNumber(30, 100, 5);
 
+    // Hybrid & Kamera-Einstellungen
+    private readonly CheckBox _showViewportAnchor = new()
+    {
+        Text = "Viewport-Ankerpunkt an Auswahl anzeigen"
+    };
+
+    private readonly CheckBox _showTetherLine = new()
+    {
+        Text = "Dezente Verbindungslinie zur Toolbar zeichnen"
+    };
+
+    private readonly NumericStepper _tetherOpacity = CreateNumber(20, 255, 10);
+    private readonly NumericStepper _tetherThickness = new()
+    {
+        MinValue = 0.5,
+        MaxValue = 5.0,
+        Increment = 0.5,
+        DecimalPlaces = 1
+    };
+
+    private readonly CheckBox _followCameraMovement = new()
+    {
+        Text = "Live-Mitbewegung bei Kamera-Rotation und Zoom"
+    };
+
+    private readonly CheckBox _autoHideOffscreen = new()
+    {
+        Text = "Ausblenden, wenn Auswahl außerhalb des Viewports liegt"
+    };
+
+    private readonly NumericStepper _dynamicOffset = CreateNumber(0, 200, 8);
+
+    private readonly CheckBox _enableEdgeSnapping = new()
+    {
+        Text = "Magnetisches Einrasten an Viewport-Rändern aktivieren"
+    };
+
+    private readonly NumericStepper _edgeSnapDistance = CreateNumber(8, 80, 4);
+
     private readonly ListBox _actions = new()
     {
-        Height = 310
+        Height = 290
     };
 
     private readonly CheckBox _enabled = new()
@@ -60,14 +99,9 @@ internal sealed class ContextAssistOptionsControl : Panel
         Text = "Automatisch nach Nutzung priorisieren"
     };
 
-    private readonly CheckBox _showViewportAnchor = new()
+    private readonly Label _transferStatusLabel = new()
     {
-        Text = "Viewport-Ankerpunkt an Auswahl anzeigen (Hybrid)"
-    };
-
-    private readonly CheckBox _showTetherLine = new()
-    {
-        Text = "Dezente Verbindungslinie zur Toolbar zeichnen"
+        Text = "Übertrage alle Einstellungen, Favoriten, Sortierungen und Statistiken per JSON-Datei auf andere PCs."
     };
 
     public ContextAssistOptionsControl(ContextAssistSettings settings)
@@ -82,11 +116,18 @@ internal sealed class ContextAssistOptionsControl : Panel
         var moveUpButton = CreateSmallButton("Nach oben", 105);
         var moveDownButton = CreateSmallButton("Nach unten", 105);
 
+        var exportButton = CreateSmallButton("Einstellungen exportieren …", 190);
+        var importButton = CreateSmallButton("Einstellungen importieren …", 190);
+
         favoriteButton.Click += (_, _) => ToggleSelectedFavorite();
         moveUpButton.Click += (_, _) => MoveSelectedAction(-1);
         moveDownButton.Click += (_, _) => MoveSelectedAction(1);
         _selectionKind.SelectedIndexChanged += (_, _) => RefreshActions();
 
+        exportButton.Click += (_, _) => ExportSettingsDialog();
+        importButton.Click += (_, _) => ImportSettingsDialog();
+
+        // Tab 1: Darstellung & Zeiten
         var displayLayout = new DynamicLayout
         {
             Padding = 10,
@@ -94,7 +135,6 @@ internal sealed class ContextAssistOptionsControl : Panel
         };
 
         displayLayout.AddRow(_enabled, _automaticPriority);
-        displayLayout.AddRow(_showViewportAnchor, _showTetherLine);
         displayLayout.AddRow(new Label { Text = "Darstellung" }, _uxMode);
         displayLayout.AddRow(new Label { Text = "Position" }, _position);
         displayLayout.AddRow(new Label { Text = "Randabstand (px)" }, _cornerMargin);
@@ -108,6 +148,25 @@ internal sealed class ContextAssistOptionsControl : Panel
         displayLayout.AddRow(new Label { Text = "Aktive Deckkraft (%)" }, _activeOpacity);
         displayLayout.AddSpace();
 
+        // Tab 2: Hybrid & Viewport
+        var hybridLayout = new DynamicLayout
+        {
+            Padding = 10,
+            Spacing = new Eto.Drawing.Size(6, 6)
+        };
+
+        hybridLayout.AddRow(_showViewportAnchor);
+        hybridLayout.AddRow(_showTetherLine);
+        hybridLayout.AddRow(new Label { Text = "Linien-Deckkraft (20–255)" }, _tetherOpacity);
+        hybridLayout.AddRow(new Label { Text = "Linienstärke (px)" }, _tetherThickness);
+        hybridLayout.AddRow(_followCameraMovement);
+        hybridLayout.AddRow(_autoHideOffscreen);
+        hybridLayout.AddRow(new Label { Text = "Dynamischer Geometrie-Abstand (px)" }, _dynamicOffset);
+        hybridLayout.AddRow(_enableEdgeSnapping);
+        hybridLayout.AddRow(new Label { Text = "Magnetischer Einrastabstand (px)" }, _edgeSnapDistance);
+        hybridLayout.AddSpace();
+
+        // Tab 3: Aktionen, Favoriten & PC-Transfer (Export/Import)
         var actionsLayout = new DynamicLayout
         {
             Padding = 10,
@@ -120,6 +179,10 @@ internal sealed class ContextAssistOptionsControl : Panel
             favoriteButton,
             moveUpButton,
             moveDownButton));
+        actionsLayout.AddRow(new Label { Text = "Einstellungen sichern / auf andere PCs übertragen:" });
+        actionsLayout.AddRow(CreateButtonRow(exportButton, importButton));
+        actionsLayout.AddRow(_transferStatusLabel);
+        actionsLayout.AddSpace();
 
         var tabs = new TabControl();
         tabs.Pages.Add(new TabPage
@@ -129,7 +192,12 @@ internal sealed class ContextAssistOptionsControl : Panel
         });
         tabs.Pages.Add(new TabPage
         {
-            Text = "Aktionen & Favoriten",
+            Text = "Hybrid & Viewport",
+            Content = hybridLayout
+        });
+        tabs.Pages.Add(new TabPage
+        {
+            Text = "Aktionen & Transfer",
             Content = actionsLayout
         });
 
@@ -201,8 +269,6 @@ internal sealed class ContextAssistOptionsControl : Panel
     {
         _enabled.Checked = _settings.Enabled;
         _automaticPriority.Checked = _settings.AutomaticPrioritization;
-        _showViewportAnchor.Checked = _settings.ShowViewportAnchor;
-        _showTetherLine.Checked = _settings.ShowTetherLine;
 
         _position.SelectedIndex = (int)_settings.PositionMode;
         _uxMode.SelectedIndex = (int)_settings.UxMode;
@@ -217,7 +283,19 @@ internal sealed class ContextAssistOptionsControl : Panel
         _idleOpacity.Value = _settings.IdleOpacity;
         _activeOpacity.Value = _settings.ActiveOpacity;
 
-        _selectionKind.SelectedIndex = 0;
+        _showViewportAnchor.Checked = _settings.ShowViewportAnchor;
+        _showTetherLine.Checked = _settings.ShowTetherLine;
+        _tetherOpacity.Value = _settings.TetherLineOpacity;
+        _tetherThickness.Value = _settings.TetherLineThickness;
+        _followCameraMovement.Checked = _settings.FollowCameraMovement;
+        _autoHideOffscreen.Checked = _settings.AutoHideWhenAnchorOffscreen;
+        _dynamicOffset.Value = _settings.DynamicOffsetPx;
+        _enableEdgeSnapping.Checked = _settings.EnableEdgeSnapping;
+        _edgeSnapDistance.Value = _settings.EdgeSnapDistancePx;
+
+        if (_selectionKind.SelectedIndex < 0)
+            _selectionKind.SelectedIndex = 0;
+
         RefreshActions();
     }
 
@@ -311,12 +389,55 @@ internal sealed class ContextAssistOptionsControl : Panel
         }
     }
 
+    private void ExportSettingsDialog()
+    {
+        ApplySettings();
+
+        using var dialog = new SaveFileDialog
+        {
+            Title = "Rhino Context Assist Einstellungen exportieren",
+            FileName = "RhinoContextAssist-Settings.json"
+        };
+        dialog.Filters.Add(new FileFilter("JSON-Einstellungsdatei (*.json)", ".json"));
+
+        if (dialog.ShowDialog(this) == DialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+        {
+            try
+            {
+                _settings.ExportToFile(dialog.FileName);
+                _transferStatusLabel.Text = $"Exportiert nach: {dialog.FileName}";
+            }
+            catch (Exception ex)
+            {
+                _transferStatusLabel.Text = $"Fehler beim Export: {ex.Message}";
+            }
+        }
+    }
+
+    private void ImportSettingsDialog()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "Rhino Context Assist Einstellungen importieren",
+            MultiSelect = false
+        };
+        dialog.Filters.Add(new FileFilter("JSON-Einstellungsdatei (*.json)", ".json"));
+
+        if (dialog.ShowDialog(this) == DialogResult.Ok && !string.IsNullOrWhiteSpace(dialog.FileName))
+        {
+            if (_settings.ImportFromFile(dialog.FileName, out string msg))
+            {
+                LoadSettingsIntoControls();
+                ContextAssistPlugIn.Instance?.Controller?.RefreshConduitSettings();
+            }
+            _transferStatusLabel.Text = msg;
+        }
+    }
+
     public void ApplySettings()
     {
         _settings.Enabled = _enabled.Checked == true;
         _settings.AutomaticPrioritization = _automaticPriority.Checked == true;
-        _settings.ShowViewportAnchor = _showViewportAnchor.Checked == true;
-        _settings.ShowTetherLine = _showTetherLine.Checked == true;
 
         _settings.PositionMode =
             (PopupPositionMode)Math.Max(0, _position.SelectedIndex);
@@ -333,6 +454,17 @@ internal sealed class ContextAssistOptionsControl : Panel
         _settings.IdleOpacity = (int)_idleOpacity.Value;
         _settings.ActiveOpacity = (int)_activeOpacity.Value;
 
+        _settings.ShowViewportAnchor = _showViewportAnchor.Checked == true;
+        _settings.ShowTetherLine = _showTetherLine.Checked == true;
+        _settings.TetherLineOpacity = (int)_tetherOpacity.Value;
+        _settings.TetherLineThickness = _tetherThickness.Value;
+        _settings.FollowCameraMovement = _followCameraMovement.Checked == true;
+        _settings.AutoHideWhenAnchorOffscreen = _autoHideOffscreen.Checked == true;
+        _settings.DynamicOffsetPx = (int)_dynamicOffset.Value;
+        _settings.EnableEdgeSnapping = _enableEdgeSnapping.Checked == true;
+        _settings.EdgeSnapDistancePx = (int)_edgeSnapDistance.Value;
+
         _settings.Save();
+        ContextAssistPlugIn.Instance?.Controller?.RefreshConduitSettings();
     }
 }

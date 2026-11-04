@@ -1,38 +1,15 @@
-# Rhino Context Assist 2.1 – Stable Hybrid
+# Rhino Context Assist 2.2 – Stable Hybrid
 
-Kontextabhängige Schnellzugriffsleiste für **Rhino 8** auf Basis der bewährten **WPF-Oberfläche**, ergänzt um eine leichte **DisplayConduit-Ankerhilfe**, vollständige Einstellungspersistenz und exakte Viewport-Positionierung.
+Kontextabhängige Schnellzugriffsleiste für **Rhino 8** auf Basis der bewährten **WPF-Oberfläche**, ergänzt um eine leichte **DisplayConduit-Ankerhilfe**, Live-Kamera-Mitbewegung, magnetisches Edge-Snapping, vollständige Einstellungspersistenz sowie **Export & Import per JSON**.
 
-## Architektur (Stable Hybrid)
+## Neue Funktionen in 2.2 Stable Hybrid
 
-1. **WPF (`ContextAssistPopup`) bleibt das alleinige interaktive UI:**
-   - Kompakte Pille & erweiterbare Hauptleiste
-   - Integriertes `⋯ Mehr`-Popup direkt am Button mit Live-Volltextsuche (deutscher Befehlsname, Beschreibung, Kategorie, englisches Makro)
-   - Beschleunigte Lern-Tooltips (`180 ms` InitialDelay, `0 ms` BetweenShowDelay, `12000 ms` ShowDuration)
-   - Favoriten-Umschaltung per Rechtsklick (`★`) und automatische Priorisierung nach Nutzungshäufigkeit
+1. **Hybrid-Conduit & Live-Kamera-Tracking:**
+   - **`FollowCameraMovement`:** Bewegt die WPF-Toolbar bei Kamera-Rotation, Panning und Zoom flüssig mit der 3D-Geometrie mit.
+   - **`AutoHideWhenAnchorOffscreen`:** Blendet die Toolbar sanft aus (`Opacity -> 0`), sobald die Auswahl aus dem aktiven Viewport gedreht wird, und blendet sie automatisch wieder ein, sobald die Auswahl zurück im Sichtfeld ist.
+   - **Anpassbare Verbindungslinie:** Deckkraft (`TetherLineOpacity`) und Linienstärke (`TetherLineThickness`) lassen sich in den Rhino-Optionen unter *Hybrid & Viewport* feinjustieren.
+   - **Dynamischer Geometrie-Abstand (`DynamicOffsetPx`):** Positioniert die Toolbar im Modus *Mit Abstand zur Geometrie* automatisch in Richtung der freieren Viewport-Hälfte.
+   - **Magnetisches Edge-Snapping (`EnableEdgeSnapping` & `EdgeSnapDistancePx`):** Beim Verschieben per Drag & Drop am Kopfbereich oder bei der Positionierung rastet die Toolbar sauber an den Viewport-Rändern ein.
 
-2. **`SelectionAnalyzer` (unverändert vollständig):**
-   - Erkennt Einzelobjekte, Kurven, geschlossene planare Kurven, Flächen, planare Flächen, offene Flächenverbände, geschlossene Körper, Extrusionen (inkl. `ToBrep()`-Konvertierung für Unterobjekte), Teilflächen (`PlanarBrepFace`, `BrepFace`), `BrepEdge`, `Mesh` (+ Face/Edge/Vertex), `SubD` (+ Face/Edge/Vertex), Blockinstanzen sowie Mehrfach- und gemischte Auswahlen.
-
-3. **Leichter `ContextAssistAnchorConduit`:**
-   - Zeichnet **keine** Buttons und führt **kein** Mouse-Hit-Testing durch.
-   - Visualisiert optional einen dezenten Ankerpunkt an der 3D-Geometrie sowie optional eine feine Verbindungslinie zur WPF-Toolbar.
-
-4. **Exakte Positionierung & vollständige Persistenz (`2.1`):**
-   - Misst nach `UpdateLayout()` die tatsächliche WPF-Größe (`ActualWidth` / `ActualHeight`) statt fester Schätzwerte (`430 × 110 px`).
-   - Hält die Toolbar unter Berücksichtigung des eingestellten Randabstands sicher innerhalb des aktiven Viewports.
-   - Öffnet das `Mehr`-Menü automatisch nach oben, wenn am unteren Viewportrand zu wenig Platz ist.
-   - Verhindert nervöses Springen im Modus *Automatisch freie Ecke* durch eine 65-Pixel-Hysterese.
-   - Speichert und lädt **alle** Einstellungen zuverlässig (`Preferences`, `Usage`, `CustomActions`, Zeiten, Deckkraft, Randabstand, Hybrid-Anker).
-
-## Empfohlener Git-Workflow
-
-```bash
-# 1. Aktuellen stabilen Stand sichern
-git checkout main
-git branch stable-wpf
-git tag v1.5.3-stable
-git push origin stable-wpf --tags
-
-# 2. Neuen Feature-Branch für 2.1 Stable Hybrid anlegen
-git checkout -b feature/stable-hybrid-anchor
-```
+2. **Einstellungen Exportieren & Importieren (PC-Transfer):**
+   - Über die Rhino-Optionen (*Context Assist -> Aktionen & Transfer*) oder direkt über die Befehle `ContextAssistExportSettings` und `ContextAssistImportSettings` lassen sich sämtliche Einstellungen, Favoriten (`★`), manuelle Aktionsreihenfolgen, eigene Aktionen und Nutzungsstatistiken als `.json`-Datei exportieren und auf andere PCs übertragen.
