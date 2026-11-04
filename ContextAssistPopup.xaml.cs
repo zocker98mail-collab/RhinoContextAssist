@@ -7,8 +7,9 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Rhino;
-using Rhino.Geometry;
 using EtoPointF = Eto.Drawing.PointF;
+using Point2d = Rhino.Geometry.Point2d;
+using WpfPoint = System.Windows.WpfPoint;
 
 namespace RhinoContextAssist;
 
@@ -257,8 +258,8 @@ public partial class ContextAssistPopup : Window
         var (popupWidth, popupHeight) = MeasureAndUpdateLayout();
         Rect bounds = GetActiveViewportBounds();
 
-        Point target = CalculatePosition(_context, _activeMode, bounds, popupWidth, popupHeight);
-        Point clamped = ClampToBounds(target, bounds, popupWidth, popupHeight);
+        WpfPoint target = CalculatePosition(_context, _activeMode, bounds, popupWidth, popupHeight);
+        WpfPoint clamped = ClampToBounds(target, bounds, popupWidth, popupHeight);
 
         Left = clamped.X;
         Top = clamped.Y;
@@ -287,7 +288,7 @@ public partial class ContextAssistPopup : Window
             MoreScrollViewer.MaxHeight = Math.Clamp(available - 65, 140, 420);
         }
 
-        Point clamped = ClampToBounds(new Point(Left, Top), bounds, popupWidth, popupHeight);
+        WpfPoint clamped = ClampToBounds(new WpfPoint(Left, Top), bounds, popupWidth, popupHeight);
         Left = clamped.X;
         Top = clamped.Y;
 
@@ -307,7 +308,7 @@ public partial class ContextAssistPopup : Window
         return SystemParameters.WorkArea;
     }
 
-    private Point CalculatePosition(
+    private WpfPoint CalculatePosition(
         SelectionContext context,
         PopupPositionMode mode,
         Rect viewportRect,
@@ -316,28 +317,28 @@ public partial class ContextAssistPopup : Window
     {
         var view = RhinoDoc.ActiveDoc?.Views.ActiveView;
         EtoPointF mouseEto = Eto.Forms.Mouse.Position;
-        Point mouse = new Point(mouseEto.X, mouseEto.Y);
+        WpfPoint mouse = new WpfPoint(mouseEto.X, mouseEto.Y);
 
         if (view is null)
-            return new Point(mouse.X + 16, mouse.Y + 16);
+            return new WpfPoint(mouse.X + 16, mouse.Y + 16);
 
-        Point projected = mouse;
+        WpfPoint projected = mouse;
         if (context.Anchor.IsValid)
         {
             var client = view.ActiveViewport.WorldToClient(context.Anchor);
-            projected = new Point(
+            projected = new WpfPoint(
                 viewportRect.Left + client.X,
                 viewportRect.Top + client.Y);
         }
 
         if (mode == PopupPositionMode.Mouse)
-            return new Point(mouse.X + 18, mouse.Y - popupHeight / 2);
+            return new WpfPoint(mouse.X + 18, mouse.Y - popupHeight / 2);
 
         if (mode == PopupPositionMode.Geometry)
-            return new Point(projected.X - popupWidth / 2, projected.Y - popupHeight - 18);
+            return new WpfPoint(projected.X - popupWidth / 2, projected.Y - popupHeight - 18);
 
         if (mode == PopupPositionMode.GeometryOffset)
-            return new Point(projected.X + 48, projected.Y - popupHeight - 36);
+            return new WpfPoint(projected.X + 48, projected.Y - popupHeight - 36);
 
         double margin = Math.Max(12, _settings.CornerMarginPx);
         double safeRightX = Math.Max(viewportRect.Left + 12, viewportRect.Right - margin - popupWidth);
@@ -345,12 +346,12 @@ public partial class ContextAssistPopup : Window
         double safeLeftX = Math.Min(safeRightX, viewportRect.Left + margin);
         double safeTopY = Math.Min(safeBottomY, viewportRect.Top + margin);
 
-        var corners = new Dictionary<PopupPositionMode, Point>
+        var corners = new Dictionary<PopupPositionMode, WpfPoint>
         {
-            { PopupPositionMode.TopLeft, new Point(safeLeftX, safeTopY) },
-            { PopupPositionMode.TopRight, new Point(safeRightX, safeTopY) },
-            { PopupPositionMode.BottomLeft, new Point(safeLeftX, safeBottomY) },
-            { PopupPositionMode.BottomRight, new Point(safeRightX, safeBottomY) }
+            { PopupPositionMode.TopLeft, new WpfPoint(safeLeftX, safeTopY) },
+            { PopupPositionMode.TopRight, new WpfPoint(safeRightX, safeTopY) },
+            { PopupPositionMode.BottomLeft, new WpfPoint(safeLeftX, safeBottomY) },
+            { PopupPositionMode.BottomRight, new WpfPoint(safeRightX, safeBottomY) }
         };
 
         if (mode != PopupPositionMode.AutoViewportCorner)
@@ -359,8 +360,8 @@ public partial class ContextAssistPopup : Window
         // Berechne Abstand zwischen dem Zentrum der Toolbar in jeder Ecke und der projizierten Geometrie
         double ScoreCorner(PopupPositionMode cornerMode)
         {
-            Point topLeft = corners[cornerMode];
-            Point center = new Point(topLeft.X + popupWidth / 2, topLeft.Y + popupHeight / 2);
+            WpfPoint topLeft = corners[cornerMode];
+            WpfPoint center = new WpfPoint(topLeft.X + popupWidth / 2, topLeft.Y + popupHeight / 2);
             return Distance(center, projected);
         }
 
@@ -381,7 +382,7 @@ public partial class ContextAssistPopup : Window
         return corners[bestCorner];
     }
 
-    private Point ClampToBounds(Point desired, Rect viewportRect, double popupWidth, double popupHeight)
+    private WpfPoint ClampToBounds(WpfPoint desired, Rect viewportRect, double popupWidth, double popupHeight)
     {
         Rect workArea = SystemParameters.WorkArea;
         Rect safeRect = Rect.Intersect(viewportRect, workArea);
@@ -401,7 +402,7 @@ public partial class ContextAssistPopup : Window
         double minY = safeRect.Top + pad;
         double maxY = Math.Max(minY, safeRect.Bottom - popupHeight - pad - extraBottom);
 
-        return new Point(
+        return new WpfPoint(
             Math.Clamp(desired.X, minX, maxX),
             Math.Clamp(desired.Y, minY, maxY));
     }
@@ -417,7 +418,7 @@ public partial class ContextAssistPopup : Window
         RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();
     }
 
-    private static double Distance(Point first, Point second)
+    private static double Distance(WpfPoint first, WpfPoint second)
     {
         double x = first.X - second.X;
         double y = first.Y - second.Y;
