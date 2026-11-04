@@ -1,20 +1,16 @@
-# Rhino Context Assist 2.0.2 Legacy Cleanup Fix
+# Rhino Context Assist 1.5.3 Direct Replacement
 
-## Ursache
+Ersetze im GitHub-Repository direkt:
 
-Im Repository liegt noch `ActionService.cs` aus Version 1.5. Die Hybrid-HUD-Version 2.0 verwendet diese Klasse nicht mehr. Die alte Datei erwartet inzwischen entfernte Typen und Eigenschaften:
+- `ActionCatalog.cs`
+- `ContextAssistPopup.xaml`
 
-- `SelectionKind.MultipleEnvelopeObjects`
-- `ContextAssistSettings.CustomActions`
-- `ActionCatalog.Defaults`
-- `SelectionContext.HasOtherBlocks`
-- `ContextAction.Requirement`
+Keine Skripte und keine manuellen Änderungen erforderlich.
 
-## Installation
+## Änderungen
 
-1. `ActionService.cs` aus dem GitHub-Repository löschen.
-2. Die vorhandene `RhinoContextAssist.csproj` durch die Datei aus diesem Paket ersetzen.
-3. Weitere Dateien laut `DELETE_THESE_LEGACY_FILES.txt` löschen.
-4. Committen und GitHub Actions erneut starten.
-
-Die neue Projektdatei schließt alte Dateien zusätzlich vom Build aus, falls eine davon versehentlich im Repository verbleibt.
+- Der sichtbare deutsche Befehlsname lautet überall `Inset`.
+- Das interne sprachunabhängige Makro bleibt `_Inset`.
+- Erster Tooltip nach 180 ms.
+- Weitere Tooltips ohne erneute Verzögerung.
+- Maximale Tooltip-Anzeigedauer 12 Sekunden.

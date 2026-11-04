@@ -1,5 +1,5 @@
 name: RhinoContextAssist
-version: 2.0.0-preview1
+version: 1.5.0
 authors: [Marcel Draeger]
-description: Hybrid viewport HUD and WPF command search for Rhino 8.
-keywords: [productivity, HUD, display-conduit, context-menu]
+description: Context-aware WPF command HUD for Rhino 8 on Windows.
+keywords: [productivity, context-menu, blocks, mesh, subd]
