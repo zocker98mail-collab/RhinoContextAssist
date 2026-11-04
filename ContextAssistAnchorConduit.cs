@@ -1,5 +1,6 @@
 using System.Drawing;
 using Rhino.Display;
+using Rhino.DocObjects;
 using Rhino.Geometry;
 
 namespace RhinoContextAssist;

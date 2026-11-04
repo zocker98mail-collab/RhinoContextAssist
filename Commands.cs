@@ -72,7 +72,7 @@ public sealed class ContextAssistExportSettingsCommand : RhinoCommand
         if (plugin == null)
             return Result.Failure;
 
-        using var dialog = new SaveFileDialog
+        using var dialog = new Eto.Forms.SaveFileDialog
         {
             Title = "Rhino Context Assist Einstellungen exportieren",
             FileName = "RhinoContextAssist-Settings.json"
@@ -101,7 +101,7 @@ public sealed class ContextAssistImportSettingsCommand : RhinoCommand
         if (plugin == null)
             return Result.Failure;
 
-        using var dialog = new OpenFileDialog
+        using var dialog = new Eto.Forms.OpenFileDialog
         {
             Title = "Rhino Context Assist Einstellungen importieren",
             MultiSelect = false

@@ -393,7 +393,7 @@ internal sealed class ContextAssistOptionsControl : Panel
     {
         ApplySettings();
 
-        using var dialog = new SaveFileDialog
+        using var dialog = new Eto.Forms.SaveFileDialog
         {
             Title = "Rhino Context Assist Einstellungen exportieren",
             FileName = "RhinoContextAssist-Settings.json"
@@ -416,7 +416,7 @@ internal sealed class ContextAssistOptionsControl : Panel
 
     private void ImportSettingsDialog()
     {
-        using var dialog = new OpenFileDialog
+        using var dialog = new Eto.Forms.OpenFileDialog
         {
             Title = "Rhino Context Assist Einstellungen importieren",
             MultiSelect = false
