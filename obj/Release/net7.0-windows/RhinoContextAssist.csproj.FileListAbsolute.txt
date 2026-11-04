@@ -1,8 +1,0 @@
-/workspaces/RhinoContextAssist/obj/Release/net7.0-windows/RhinoContextAssist.csproj.AssemblyReference.cache
-/workspaces/RhinoContextAssist/obj/Release/net7.0-windows/CommandSearchWindow.baml
-/workspaces/RhinoContextAssist/obj/Release/net7.0-windows/CommandSearchWindow.g.cs
-/workspaces/RhinoContextAssist/obj/Release/net7.0-windows/RhinoContextAssist_MarkupCompile.cache
-/workspaces/RhinoContextAssist/obj/Release/net7.0-windows/RhinoContextAssist.g.resources
-/workspaces/RhinoContextAssist/obj/Release/net7.0-windows/RhinoContextAssist.GeneratedMSBuildEditorConfig.editorconfig
-/workspaces/RhinoContextAssist/obj/Release/net7.0-windows/RhinoContextAssist.csproj.CoreCompileInputs.cache
-/workspaces/RhinoContextAssist/obj/Release/net7.0-windows/RhinoContextAssist.sourcelink.json
