@@ -9,7 +9,7 @@ using System.Windows.Threading;
 using Rhino;
 using EtoPointF = Eto.Drawing.PointF;
 using Point2d = Rhino.Geometry.Point2d;
-using WpfPoint = System.Windows.WpfPoint;
+using WpfPoint = System.Windows.Point;
 
 namespace RhinoContextAssist;
 
