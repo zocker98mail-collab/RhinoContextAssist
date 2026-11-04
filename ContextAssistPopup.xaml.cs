@@ -47,7 +47,7 @@ public partial class ContextAssistPopup : Window
         _settings = settings;
         _conduit = conduit;
         _timer = new DispatcherTimer(
-            TimeSpan.FromMilliseconds(40),
+            TimeSpan.FromMilliseconds(50),
             DispatcherPriority.Background,
             (_, _) => Tick(),
             Dispatcher);
@@ -278,6 +278,14 @@ public partial class ContextAssistPopup : Window
         UpdateConduitScreenAnchor(bounds, popupWidth, popupHeight);
     }
 
+    internal void OnViewportCameraChanged()
+    {
+        if (!IsVisible || _userManuallyDragged)
+            return;
+
+        UpdateCameraTrackingAndOcclusion();
+    }
+
     private void AdjustMorePopupPlacementAndClamp()
     {
         var (popupWidth, popupHeight) = MeasureAndUpdateLayout();
@@ -350,7 +358,6 @@ public partial class ContextAssistPopup : Window
 
         if (mode == PopupPositionMode.GeometryOffset)
         {
-            // Dynamischer Offset: verschiebt die Toolbar leicht vom Zentrum weg Richtung freier Viewport-Seite
             double baseOffset = Math.Max(16, _settings.DynamicOffsetPx);
             double centerX = viewportRect.Left + viewportRect.Width / 2.0;
             double centerY = viewportRect.Top + viewportRect.Height / 2.0;
@@ -396,7 +403,6 @@ public partial class ContextAssistPopup : Window
             .OrderByDescending(ScoreCorner)
             .First();
 
-        // Hysterese: Bleibe in der bisherigen Ecke, solange die neue Ecke nicht mindestens 65 Pixel weiter von der Geometrie entfernt ist
         if (_lastAutoCorner.HasValue && corners.ContainsKey(_lastAutoCorner.Value))
         {
             double currentScore = ScoreCorner(_lastAutoCorner.Value);
@@ -486,12 +492,6 @@ public partial class ContextAssistPopup : Window
         if (!IsVisible)
             return;
 
-        // 1. Prüfe Kamera-/Viewport-Bewegung und Offscreen-Status des 3D-Ankers
-        UpdateCameraTrackingAndOcclusion();
-
-        if (_hiddenDueToOffscreen)
-            return;
-
         DateTime now = DateTime.UtcNow;
         bool inside = IsMouseOver || (More.IsOpen && More.IsMouseOver);
 
@@ -573,7 +573,7 @@ public partial class ContextAssistPopup : Window
         var vRect = view.ScreenRectangle;
         var currentProjected = new WpfPoint(vRect.Left + clientPt.X, vRect.Top + clientPt.Y);
 
-        if (double.IsNaN(_lastProjectedAnchor.X) || Distance(currentProjected, _lastProjectedAnchor) >= 1.5)
+        if (double.IsNaN(_lastProjectedAnchor.X) || Distance(currentProjected, _lastProjectedAnchor) >= 0.5)
         {
             _lastProjectedAnchor = currentProjected;
 
@@ -628,7 +628,7 @@ public partial class ContextAssistPopup : Window
     {
         BeginAnimation(
             OpacityProperty,
-            new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(120)));
+            new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(100)));
     }
 
     private void InitializeNativeWindow(object? sender, EventArgs e)

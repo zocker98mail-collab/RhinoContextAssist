@@ -2,177 +2,91 @@ using Eto.Forms;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.Geometry;
-
 namespace RhinoContextAssist;
-
-internal sealed class ContextAssistController : IDisposable
-{
-    private readonly UITimer _timer;
-    private readonly ContextAssistSettings _settings;
-    private readonly ContextAssistAnchorConduit _conduit;
-    private ContextAssistPopup? _popup;
-    private DateTime _due = DateTime.MaxValue;
-    private Guid _lastViewportId = Guid.Empty;
-
-    public ContextAssistController(ContextAssistSettings settings)
-    {
-        _settings = settings;
-        _conduit = new ContextAssistAnchorConduit();
-        _timer = new UITimer { Interval = 0.08 };
-        _timer.Elapsed += (_, _) => Tick();
-    }
-
-    public void Start()
-    {
-        RhinoDoc.SelectObjects += OnSelectionChanged;
-        RhinoDoc.DeselectObjects += OnSelectionChanged;
-        RhinoDoc.DeselectAllObjects += OnSelectionCleared;
-        RhinoDoc.BeginSaveDocument += OnDocumentEventHide;
-        RhinoDoc.CloseDocument += OnDocumentEventHide;
-        RhinoView.SetActive += OnActiveViewChanged;
-        _timer.Start();
-    }
-
-    public void ShowNow()
-    {
-        var doc = RhinoDoc.ActiveDoc;
-        if (doc == null)
-            return;
-
-        ClosePopupAndConduit();
-        OpenForCurrentSelection(doc);
-    }
-
-    public void RefreshConduitSettings()
-    {
-        _conduit.ShowAnchorDot = _settings.ShowViewportAnchor;
-        _conduit.ShowTetherLine = _settings.ShowTetherLine;
-        _conduit.TetherOpacity = _settings.TetherLineOpacity;
-        _conduit.TetherThickness = (float)_settings.TetherLineThickness;
-
-        if (_popup is { IsVisible: true })
-        {
-            _popup.RepositionAndClamp();
-            RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();
-        }
-    }
-
-    private void OnSelectionChanged(object? sender, RhinoObjectSelectionEventArgs e)
-    {
-        ClosePopupAndConduit();
-        _due = DateTime.UtcNow.AddMilliseconds(_settings.SelectionDelayMs);
-    }
-
-    private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e) => Hide();
-
-    private void OnDocumentEventHide(object? sender, DocumentEventArgs e) => Hide();
-
-    private void OnActiveViewChanged(object? sender, ViewEventArgs e)
-    {
-        if (e.View == null)
-            return;
-
-        var newId = e.View.ActiveViewportID;
-        if (newId != _lastViewportId && _popup is { IsVisible: true })
-        {
-            _lastViewportId = newId;
-            _conduit.ActiveViewportId = newId;
-            _popup.RepositionAndClamp();
-            e.View.Redraw();
-        }
-    }
-
-    private void Tick()
-    {
-        var doc = RhinoDoc.ActiveDoc;
-        if (!_settings.Enabled || doc == null || Rhino.Commands.Command.InScriptRunnerCommand())
-            return;
-
-        if (_due == DateTime.MaxValue || DateTime.UtcNow < _due)
-            return;
-
-        _due = DateTime.MaxValue;
-        OpenForCurrentSelection(doc);
-    }
-
-    private void OpenForCurrentSelection(RhinoDoc doc)
-    {
-        var context = SelectionAnalyzer.Analyze(doc);
-        if (context.Kind == SelectionKind.None)
-            return;
-
-        var actions = ActionService.Get(context, _settings);
-        if (actions.Count == 0)
-            return;
-
-        var activeView = doc.Views.ActiveView;
-        _lastViewportId = activeView?.ActiveViewportID ?? Guid.Empty;
-
-        if ((_settings.ShowViewportAnchor || _settings.ShowTetherLine) && context.Anchor.IsValid)
-        {
-            _conduit.AnchorWorld = context.Anchor;
-            _conduit.ShowAnchorDot = _settings.ShowViewportAnchor;
-            _conduit.ShowTetherLine = _settings.ShowTetherLine;
-            _conduit.TetherOpacity = _settings.TetherLineOpacity;
-            _conduit.TetherThickness = (float)_settings.TetherLineThickness;
-            _conduit.ActiveViewportId = _lastViewportId;
-            _conduit.Enabled = true;
-            activeView?.Redraw();
-        }
-
-        _popup = new ContextAssistPopup(Execute, Hide, _settings, _conduit);
-        _popup.UpdateActions(context, actions);
-        _popup.ShowAt(context, _settings.PositionMode);
-    }
-
-    private void Execute(ContextAction action)
-    {
-        if (ContextAssistPlugIn.Instance != null)
-            ContextAssistPlugIn.Instance.LastAction = action;
-
-        _settings.RecordUsage(action.Id);
-        Hide();
-        RhinoApp.RunScript(action.Macro, false);
-    }
-
-    public void Hide()
-    {
-        _due = DateTime.MaxValue;
-        ClosePopupAndConduit();
-    }
-
-    private void ClosePopupAndConduit()
-    {
-        if (_conduit.Enabled)
-        {
-            _conduit.Enabled = false;
-            _conduit.AnchorWorld = Point3d.Unset;
-            _conduit.ToolbarScreenAnchor = null;
-            RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();
-        }
-
-        try
-        {
-            _popup?.Close();
-        }
-        catch
-        {
-            // Ignoriere Fehler beim Schließen des WPF-Popups
-        }
-
-        _popup = null;
-    }
-
-    public void Dispose()
-    {
-        _timer.Stop();
-        RhinoDoc.SelectObjects -= OnSelectionChanged;
-        RhinoDoc.DeselectObjects -= OnSelectionChanged;
-        RhinoDoc.DeselectAllObjects -= OnSelectionCleared;
-        RhinoDoc.BeginSaveDocument -= OnDocumentEventHide;
-        RhinoDoc.CloseDocument -= OnDocumentEventHide;
-        RhinoView.SetActive -= OnActiveViewChanged;
-        ClosePopupAndConduit();
-    }
+internal sealed class ContextAssistController:IDisposable{
+ readonly UITimer timer;readonly ContextAssistSettings settings;ContextAssistPopup? popup;DateTime due=DateTime.MaxValue;
+ internal ContextAssistAnchorConduit? Conduit{get;private set;};internal SelectionContext? LastContext{get;private set;};
+ public ContextAssistController(ContextAssistSettings s){
+  settings=s;
+  Conduit=new ContextAssistAnchorConduit{
+   ShowAnchorDot=s.ShowViewportAnchor,
+   ShowTetherLine=s.ShowTetherLine,
+   TetherOpacity=s.TetherLineOpacity,
+   TetherThickness=s.TetherLineThickness
+  };
+  Conduit.Enabled=true;
+  timer=new UITimer{Interval=.04};
+  timer.Elapsed+=(_,_)=>Tick();
+ }
+ public void Start(){
+  RhinoDoc.SelectObjects+=Changed;
+  RhinoDoc.DeselectObjects+=Changed;
+  RhinoDoc.DeselectAllObjects+=Cleared;
+  DisplayPipeline.CalculateBoundingBox+=OnCalculateBoundingBox;
+  timer.Start();
+ }
+ public void RefreshConduitSettings(){
+  if(Conduit==null)return;
+  Conduit.ShowAnchorDot=settings.ShowViewportAnchor;
+  Conduit.ShowTetherLine=settings.ShowTetherLine;
+  Conduit.TetherOpacity=settings.TetherLineOpacity;
+  Conduit.TetherThickness=settings.TetherLineThickness;
+  RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();
+ }
+ void Changed(object?s,RhinoObjectSelectionEventArgs e){Close();due=DateTime.UtcNow.AddMilliseconds(settings.SelectionDelayMs);}
+ void Cleared(object?s,RhinoDeselectAllObjectsEventArgs e)=>Hide();
+ void OnCalculateBoundingBox(object? sender, CalculateBoundingBoxEventArgs e){
+  if(popup==null||!popup.IsVisible||!settings.FollowCameraMovement)return;
+  var view=RhinoDoc.ActiveDoc?.Views.ActiveView;
+  if(view==null||view.ActiveViewport.Id!=e.Viewport.Id)return;
+  popup.Dispatcher.BeginInvoke(new Action(()=>{
+   if(popup!=null&&popup.IsVisible)popup.OnViewportCameraChanged();
+  }));
+ }
+ void Tick(){
+  var d=RhinoDoc.ActiveDoc;
+  if(!settings.Enabled||d==null||d.IsCommandRunning)return;
+  if(due==DateTime.MaxValue||DateTime.UtcNow<due)return;
+  due=DateTime.MaxValue;
+  var c=SelectionAnalyzer.Analyze(d);
+  LastContext=c;
+  if(c.Kind==SelectionKind.None){Hide();return;}
+  var a=ActionService.Get(c,settings);
+  if(a.Count==0){Hide();return;}
+  if(Conduit!=null)Conduit.AnchorWorld=c.Anchor;
+  if(popup==null){
+   popup=new(Execute,Hide,settings,Conduit);
+   popup.UpdateActions(c,a);
+   popup.ShowAt(c,settings.PositionMode);
+  }else{
+   popup.UpdateActions(c,a);
+  }
+ }
+ public void ShowNow(){
+  var d=RhinoDoc.ActiveDoc;
+  if(d==null)return;
+  due=DateTime.MaxValue;
+  var c=SelectionAnalyzer.Analyze(d);
+  LastContext=c;
+  if(c.Kind==SelectionKind.None)return;
+  var a=ActionService.Get(c,settings);
+  if(a.Count==0)return;
+  if(Conduit!=null)Conduit.AnchorWorld=c.Anchor;
+  Close();
+  popup=new(Execute,Hide,settings,Conduit);
+  popup.UpdateActions(c,a);
+  popup.ShowAt(c,settings.PositionMode);
+ }
+ void Execute(ContextAction a){ContextAssistPlugIn.Instance!.LastAction=a;settings.RecordUsage(a.Id);Hide();RhinoApp.RunScript(a.Macro,false);}
+ public void Hide(){due=DateTime.MaxValue;if(Conduit!=null)Conduit.AnchorWorld=Point3d.Unset;Close();RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();}
+ void Close(){try{popup?.Close();}catch{}popup=null;}
+ public void Dispose(){
+  timer.Stop();
+  RhinoDoc.SelectObjects-=Changed;
+  RhinoDoc.DeselectObjects-=Changed;
+  RhinoDoc.DeselectAllObjects-=Cleared;
+  DisplayPipeline.CalculateBoundingBox-=OnCalculateBoundingBox;
+  if(Conduit!=null){Conduit.Enabled=false;Conduit=null;}
+  Close();
+ }
 }
