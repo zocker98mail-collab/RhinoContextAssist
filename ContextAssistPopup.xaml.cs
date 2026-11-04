@@ -162,14 +162,9 @@ public partial class ContextAssistPopup : Window
         ContextAction action,
         string englishCommand)
     {
-        return $"{action.Label}
-
-" +
-               $"{action.Hint}
-
-" +
-               $"Englischer Befehl / Makro: {englishCommand}
-" +
+        return $"{action.Label}\n\n" +
+               $"{action.Hint}\n\n" +
+               $"Englischer Befehl / Makro: {englishCommand}\n" +
                "Rechtsklick: Favorit umschalten";
     }
 
