@@ -45,8 +45,17 @@ internal sealed class ContextAssistAnchorConduit : DisplayConduit
 
         if (ShowAnchorDot)
         {
-            e.Display.Draw2dCircle(anchor2d, 6.0f, Color.FromArgb(180, 70, 165, 255), 1.5f);
-            e.Display.Draw2dCircle(anchor2d, 2.5f, Color.FromArgb(230, 255, 255, 255), 2.5f);
+            e.Display.DrawPoint(
+                AnchorWorld,
+                PointStyle.RoundControlPoint,
+                Color.FromArgb(235, 255, 255, 255),
+                Color.FromArgb(200, 70, 165, 255),
+                6.0f,
+                1.5f,
+                0.0f,
+                0.0f,
+                true,
+                true);
         }
     }
 }
