@@ -1,13 +1,46 @@
-name: Rhino Context Assist 1.5 bauen
-on: { workflow_dispatch: {}, push: { branches: [ main ] } }
+name: Build Rhino 8 Plug-in
+
+on:
+  push:
+    branches:
+      - main
+      - stable-wpf
+      - "feature/**"
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: "7.0.x" }
-      - run: dotnet restore RhinoContextAssist.csproj
-      - run: dotnet build RhinoContextAssist.csproj -c Release --no-restore
-      - uses: actions/upload-artifact@v4
-        with: { name: RhinoContextAssist-1.5, path: bin/Release/net7.0-windows/*, if-no-files-found: error }
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 7
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "7.0.x"
+
+      - name: Restore Dependencies
+        run: dotnet restore RhinoContextAssist.csproj
+
+      - name: Build Release (.rhp)
+        run: dotnet build RhinoContextAssist.csproj --configuration Release --no-restore
+
+      - name: Prepare Package Directory
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item "bin/Release/net7.0-windows/RhinoContextAssist.rhp" -Destination "dist/"
+          Copy-Item "package/manifest.yml" -Destination "dist/"
+
+      - name: Upload Build Artifact (.rhp)
+        uses: actions/upload-artifact@v4
+        with:
+          name: RhinoContextAssist-2.1-StableHybrid
+          path: |
+            dist/RhinoContextAssist.rhp
+            dist/manifest.yml
