@@ -1,5 +1,17 @@
+---
 name: RhinoContextAssist
-version: 1.5.0
-authors: [Marcel Draeger]
-description: Context-aware WPF command HUD for Rhino 8 on Windows.
-keywords: [productivity, context-menu, blocks, mesh, subd]
+version: 2.1.0
+authors:
+  - zocker98mail-collab
+description: >
+  Kontextabhängige WPF-Schnellzugriffsleiste (Stable Hybrid) für Rhino 8 mit vollständiger
+  Objekt- und Unterobjekterkennung, deutschen Rhino-Befehlsnamen als Lernhilfe,
+  integriertem Mehr-Menü, Suche, Favoriten und leichtem Viewport-Anker.
+url: https://github.com/zocker98mail-collab/RhinoContextAssist
+keywords:
+  - context
+  - toolbar
+  - hud
+  - wpf
+  - german
+  - workflow
