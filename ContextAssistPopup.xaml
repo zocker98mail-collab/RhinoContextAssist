@@ -21,6 +21,7 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="9,5" />
             <Setter Property="Margin" Value="2" />
+            <Setter Property="Cursor" Value="Hand" />
             <Setter Property="ToolTipService.InitialShowDelay" Value="180" />
             <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
             <Setter Property="ToolTipService.ShowDuration" Value="12000" />
@@ -33,7 +34,8 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="#EF282828"
+    <Border x:Name="RootBorder"
+            Background="#EF282828"
             CornerRadius="12"
             Padding="5"
             Effect="{StaticResource S}">
@@ -51,11 +53,13 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock x:Name="TitleText"
+                               VerticalAlignment="Center"
                                Foreground="#DDD" />
 
                     <Button Grid.Column="1"
                             Content="×"
                             Style="{StaticResource B}"
+                            ToolTip="Schließen"
                             Click="Close_Click" />
                 </Grid>
 
@@ -74,13 +78,14 @@
                             <TextBox x:Name="SearchBox"
                                      Margin="3"
                                      Padding="6"
-                                     ToolTip="Befehl suchen"
+                                     ToolTip="Befehl nach deutschem Namen, Beschreibung, Kategorie oder englischem Makro suchen"
                                      ToolTipService.InitialShowDelay="180"
                                      ToolTipService.BetweenShowDelay="0"
                                      ToolTipService.ShowDuration="12000"
                                      TextChanged="SearchBox_TextChanged" />
 
-                            <ScrollViewer MaxHeight="420"
+                            <ScrollViewer x:Name="MoreScrollViewer"
+                                          MaxHeight="420"
                                           VerticalScrollBarVisibility="Auto">
                                 <StackPanel x:Name="SearchResults" />
                             </ScrollViewer>

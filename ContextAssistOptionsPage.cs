@@ -34,12 +34,20 @@ internal sealed class ContextAssistOptionsControl : Panel
     private readonly DropDown _uxMode = new();
     private readonly DropDown _selectionKind = new();
 
-    private readonly NumericStepper _cornerMargin = CreateNumber(50, 250);
-    private readonly NumericStepper _primaryCount = CreateNumber(1, 5);
+    private readonly NumericStepper _cornerMargin = CreateNumber(20, 350);
+    private readonly NumericStepper _primaryCount = CreateNumber(1, 8);
+
+    private readonly NumericStepper _selectionDelay = CreateNumber(50, 2000, 50);
+    private readonly NumericStepper _hoverDelay = CreateNumber(50, 2000, 50);
+    private readonly NumericStepper _collapseDelay = CreateNumber(100, 5000, 100);
+    private readonly NumericStepper _moreCollapseDelay = CreateNumber(200, 10000, 100);
+    private readonly NumericStepper _autoHideDelay = CreateNumber(0, 30000, 500);
+    private readonly NumericStepper _idleOpacity = CreateNumber(15, 100, 5);
+    private readonly NumericStepper _activeOpacity = CreateNumber(30, 100, 5);
 
     private readonly ListBox _actions = new()
     {
-        Height = 330
+        Height = 310
     };
 
     private readonly CheckBox _enabled = new()
@@ -49,7 +57,17 @@ internal sealed class ContextAssistOptionsControl : Panel
 
     private readonly CheckBox _automaticPriority = new()
     {
-        Text = "Automatisch priorisieren"
+        Text = "Automatisch nach Nutzung priorisieren"
+    };
+
+    private readonly CheckBox _showViewportAnchor = new()
+    {
+        Text = "Viewport-Ankerpunkt an Auswahl anzeigen (Hybrid)"
+    };
+
+    private readonly CheckBox _showTetherLine = new()
+    {
+        Text = "Dezente Verbindungslinie zur Toolbar zeichnen"
     };
 
     public ContextAssistOptionsControl(ContextAssistSettings settings)
@@ -60,9 +78,9 @@ internal sealed class ContextAssistOptionsControl : Panel
         AddUxModeItems();
         AddSelectionKindItems();
 
-        var favoriteButton = CreateSmallButton("Favorit umschalten", 135);
-        var moveUpButton = CreateSmallButton("Nach oben", 100);
-        var moveDownButton = CreateSmallButton("Nach unten", 100);
+        var favoriteButton = CreateSmallButton("Favorit umschalten", 140);
+        var moveUpButton = CreateSmallButton("Nach oben", 105);
+        var moveDownButton = CreateSmallButton("Nach unten", 105);
 
         favoriteButton.Click += (_, _) => ToggleSelectedFavorite();
         moveUpButton.Click += (_, _) => MoveSelectedAction(-1);
@@ -76,10 +94,19 @@ internal sealed class ContextAssistOptionsControl : Panel
         };
 
         displayLayout.AddRow(_enabled, _automaticPriority);
+        displayLayout.AddRow(_showViewportAnchor, _showTetherLine);
         displayLayout.AddRow(new Label { Text = "Darstellung" }, _uxMode);
         displayLayout.AddRow(new Label { Text = "Position" }, _position);
-        displayLayout.AddRow(new Label { Text = "Randabstand" }, _cornerMargin);
-        displayLayout.AddRow(new Label { Text = "Hauptaktionen" }, _primaryCount);
+        displayLayout.AddRow(new Label { Text = "Randabstand (px)" }, _cornerMargin);
+        displayLayout.AddRow(new Label { Text = "Hauptaktionen (Anzahl)" }, _primaryCount);
+        displayLayout.AddRow(new Label { Text = "Auswahlverzögerung (ms)" }, _selectionDelay);
+        displayLayout.AddRow(new Label { Text = "Hover-Verzögerung (ms)" }, _hoverDelay);
+        displayLayout.AddRow(new Label { Text = "Einklappzeit (ms)" }, _collapseDelay);
+        displayLayout.AddRow(new Label { Text = "Mehr-Menü Einklappzeit (ms)" }, _moreCollapseDelay);
+        displayLayout.AddRow(new Label { Text = "Auto-Hide (ms, 0 = aus)" }, _autoHideDelay);
+        displayLayout.AddRow(new Label { Text = "Ruhe-Deckkraft (%)" }, _idleOpacity);
+        displayLayout.AddRow(new Label { Text = "Aktive Deckkraft (%)" }, _activeOpacity);
+        displayLayout.AddSpace();
 
         var actionsLayout = new DynamicLayout
         {
@@ -97,7 +124,7 @@ internal sealed class ContextAssistOptionsControl : Panel
         var tabs = new TabControl();
         tabs.Pages.Add(new TabPage
         {
-            Text = "Darstellung",
+            Text = "Darstellung & Zeiten",
             Content = displayLayout
         });
         tabs.Pages.Add(new TabPage
@@ -141,10 +168,11 @@ internal sealed class ContextAssistOptionsControl : Panel
             _selectionKind.Items.Add(kind.ToString());
     }
 
-    private static NumericStepper CreateNumber(double min, double max) => new()
+    private static NumericStepper CreateNumber(double min, double max, double increment = 1) => new()
     {
         MinValue = min,
         MaxValue = max,
+        Increment = increment,
         DecimalPlaces = 0
     };
 
@@ -173,12 +201,40 @@ internal sealed class ContextAssistOptionsControl : Panel
     {
         _enabled.Checked = _settings.Enabled;
         _automaticPriority.Checked = _settings.AutomaticPrioritization;
+        _showViewportAnchor.Checked = _settings.ShowViewportAnchor;
+        _showTetherLine.Checked = _settings.ShowTetherLine;
+
         _position.SelectedIndex = (int)_settings.PositionMode;
         _uxMode.SelectedIndex = (int)_settings.UxMode;
         _cornerMargin.Value = _settings.CornerMarginPx;
         _primaryCount.Value = _settings.PrimaryCount;
+
+        _selectionDelay.Value = _settings.SelectionDelayMs;
+        _hoverDelay.Value = _settings.HoverDelayMs;
+        _collapseDelay.Value = _settings.CollapseDelayMs;
+        _moreCollapseDelay.Value = _settings.MoreCollapseDelayMs;
+        _autoHideDelay.Value = _settings.AutoHideMs;
+        _idleOpacity.Value = _settings.IdleOpacity;
+        _activeOpacity.Value = _settings.ActiveOpacity;
+
         _selectionKind.SelectedIndex = 0;
         RefreshActions();
+    }
+
+    private List<ContextAction> GetOrderedCatalogForKind(SelectionKind kind)
+    {
+        var catalog = ActionCatalog.Defaults(kind).ToList();
+        if (!_settings.Preferences.TryGetValue(kind, out var prefs))
+            return catalog;
+
+        var orderMap = prefs
+            .Select((p, idx) => new { p.Id, idx })
+            .GroupBy(x => x.Id)
+            .ToDictionary(g => g.Key, g => g.First().idx);
+
+        return catalog
+            .OrderBy(a => orderMap.TryGetValue(a.Id, out var i) ? i : int.MaxValue)
+            .ToList();
     }
 
     private void RefreshActions()
@@ -189,15 +245,18 @@ internal sealed class ContextAssistOptionsControl : Panel
             return;
 
         var kind = ActionCatalog.Kinds[_selectionKind.SelectedIndex];
+        var ordered = GetOrderedCatalogForKind(kind);
 
-        foreach (var action in ActionCatalog.Defaults(kind))
+        foreach (var action in ordered)
         {
             var favoriteMarker = _settings.IsFavorite(kind, action.Id)
                 ? "★"
                 : "☆";
+            var count = _settings.UsageCount(action.Id);
+            var usageSuffix = count > 0 ? $" · {count}×" : string.Empty;
 
             _actions.Items.Add(
-                $"{favoriteMarker} {action.Icon} {action.Label} [{action.Category}]");
+                $"{favoriteMarker} {action.Icon} {action.Label} [{action.Category}]{usageSuffix}");
         }
     }
 
@@ -207,13 +266,15 @@ internal sealed class ContextAssistOptionsControl : Panel
             return;
 
         var kind = ActionCatalog.Kinds[_selectionKind.SelectedIndex];
-        var catalog = ActionCatalog.Defaults(kind);
+        var ordered = GetOrderedCatalogForKind(kind);
 
-        if (_actions.SelectedIndex >= catalog.Count)
+        if (_actions.SelectedIndex >= ordered.Count)
             return;
 
-        _settings.ToggleFavorite(kind, catalog[_actions.SelectedIndex].Id);
+        int selected = _actions.SelectedIndex;
+        _settings.ToggleFavorite(kind, ordered[selected].Id);
         RefreshActions();
+        _actions.SelectedIndex = selected;
     }
 
     private void MoveSelectedAction(int direction)
@@ -222,34 +283,56 @@ internal sealed class ContextAssistOptionsControl : Panel
             return;
 
         var kind = ActionCatalog.Kinds[_selectionKind.SelectedIndex];
-
-        if (!_settings.Preferences.TryGetValue(kind, out var preferences))
-            return;
+        var ordered = GetOrderedCatalogForKind(kind);
 
         var currentIndex = _actions.SelectedIndex;
         var targetIndex = currentIndex + direction;
 
-        if (targetIndex < 0 || targetIndex >= preferences.Count)
+        if (targetIndex < 0 || targetIndex >= ordered.Count)
             return;
 
-        (preferences[currentIndex], preferences[targetIndex]) =
-            (preferences[targetIndex], preferences[currentIndex]);
+        if (!_settings.Preferences.TryGetValue(kind, out var preferences))
+            return;
 
-        _settings.Save();
-        RefreshActions();
-        _actions.SelectedIndex = targetIndex;
+        var idA = ordered[currentIndex].Id;
+        var idB = ordered[targetIndex].Id;
+
+        int prefIdxA = preferences.FindIndex(p => p.Id == idA);
+        int prefIdxB = preferences.FindIndex(p => p.Id == idB);
+
+        if (prefIdxA >= 0 && prefIdxB >= 0)
+        {
+            (preferences[prefIdxA], preferences[prefIdxB]) =
+                (preferences[prefIdxB], preferences[prefIdxA]);
+
+            _settings.Save();
+            RefreshActions();
+            _actions.SelectedIndex = targetIndex;
+        }
     }
 
     public void ApplySettings()
     {
         _settings.Enabled = _enabled.Checked == true;
         _settings.AutomaticPrioritization = _automaticPriority.Checked == true;
+        _settings.ShowViewportAnchor = _showViewportAnchor.Checked == true;
+        _settings.ShowTetherLine = _showTetherLine.Checked == true;
+
         _settings.PositionMode =
             (PopupPositionMode)Math.Max(0, _position.SelectedIndex);
         _settings.UxMode =
             (PopupUxMode)Math.Max(0, _uxMode.SelectedIndex);
         _settings.CornerMarginPx = (int)_cornerMargin.Value;
         _settings.PrimaryCount = (int)_primaryCount.Value;
+
+        _settings.SelectionDelayMs = (int)_selectionDelay.Value;
+        _settings.HoverDelayMs = (int)_hoverDelay.Value;
+        _settings.CollapseDelayMs = (int)_collapseDelay.Value;
+        _settings.MoreCollapseDelayMs = (int)_moreCollapseDelay.Value;
+        _settings.AutoHideMs = (int)_autoHideDelay.Value;
+        _settings.IdleOpacity = (int)_idleOpacity.Value;
+        _settings.ActiveOpacity = (int)_activeOpacity.Value;
+
         _settings.Save();
     }
 }
