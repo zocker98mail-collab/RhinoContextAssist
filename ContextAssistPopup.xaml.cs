@@ -47,8 +47,8 @@ public partial class ContextAssistPopup : Window
         _settings = settings;
         _conduit = conduit;
         _timer = new DispatcherTimer(
-            TimeSpan.FromMilliseconds(50),
-            DispatcherPriority.Background,
+            TimeSpan.FromMilliseconds(25),
+            DispatcherPriority.Render,
             (_, _) => Tick(),
             Dispatcher);
         SourceInitialized += InitializeNativeWindow;
@@ -278,14 +278,6 @@ public partial class ContextAssistPopup : Window
         UpdateConduitScreenAnchor(bounds, popupWidth, popupHeight);
     }
 
-    internal void OnViewportCameraChanged()
-    {
-        if (!IsVisible || _userManuallyDragged)
-            return;
-
-        UpdateCameraTrackingAndOcclusion();
-    }
-
     private void AdjustMorePopupPlacementAndClamp()
     {
         var (popupWidth, popupHeight) = MeasureAndUpdateLayout();
@@ -477,7 +469,6 @@ public partial class ContextAssistPopup : Window
         double centerX = Left + popupWidth / 2.0 - viewportRect.Left;
         double centerY = Top + popupHeight / 2.0 - viewportRect.Top;
         _conduit.ToolbarScreenAnchor = new Point2d(centerX, centerY);
-        RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();
     }
 
     private static double Distance(WpfPoint first, WpfPoint second)
@@ -487,9 +478,26 @@ public partial class ContextAssistPopup : Window
         return Math.Sqrt(x * x + y * y);
     }
 
+    internal void OnViewportCameraChanged()
+    {
+        // Wird direkt vom DisplayPipeline.CalculateBoundingBox Event während der Bewegung aufgerufen (Echtzeit!)
+        if (!IsVisible || _userManuallyDragged || !_settings.FollowCameraMovement)
+            return;
+
+        if (_activeMode is PopupPositionMode.Geometry or PopupPositionMode.GeometryOffset or PopupPositionMode.AutoViewportCorner)
+        {
+            Dispatcher.BeginInvoke(new Action(RepositionAndClamp), DispatcherPriority.Render);
+        }
+    }
+
     private void Tick()
     {
         if (!IsVisible)
+            return;
+
+        UpdateCameraTrackingAndOcclusion();
+
+        if (_hiddenDueToOffscreen)
             return;
 
         DateTime now = DateTime.UtcNow;
@@ -569,27 +577,6 @@ public partial class ContextAssistPopup : Window
                 FadeTo((IsMouseOver ? _settings.ActiveOpacity : _settings.IdleOpacity) / 100d);
             }
         }
-
-        var vRect = view.ScreenRectangle;
-        var currentProjected = new WpfPoint(vRect.Left + clientPt.X, vRect.Top + clientPt.Y);
-
-        if (double.IsNaN(_lastProjectedAnchor.X) || Distance(currentProjected, _lastProjectedAnchor) >= 0.5)
-        {
-            _lastProjectedAnchor = currentProjected;
-
-            bool shouldFollow = _settings.FollowCameraMovement &&
-                                !_userManuallyDragged &&
-                                (_activeMode is PopupPositionMode.Geometry or PopupPositionMode.GeometryOffset or PopupPositionMode.AutoViewportCorner);
-
-            if (shouldFollow && !IsMouseOver && !More.IsOpen)
-            {
-                RepositionAndClamp();
-            }
-            else if (_conduit is { Enabled: true })
-            {
-                view.Redraw();
-            }
-        }
     }
 
     private void HeaderBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -628,7 +615,7 @@ public partial class ContextAssistPopup : Window
     {
         BeginAnimation(
             OpacityProperty,
-            new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(100)));
+            new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(120)));
     }
 
     private void InitializeNativeWindow(object? sender, EventArgs e)
