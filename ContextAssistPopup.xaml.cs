@@ -11,6 +11,9 @@ using Rhino;
 using EtoPointF = Eto.Drawing.PointF;
 using Point2d = Rhino.Geometry.Point2d;
 using WpfPoint = System.Windows.Point;
+using WpfSize = System.Windows.Size;
+using WpfColor = System.Windows.Media.Color;
+using WpfBrushes = System.Windows.Media.Brushes;
 
 namespace RhinoContextAssist;
 
@@ -190,7 +193,7 @@ public partial class ContextAssistPopup : Window
         TextBlock commandText = new TextBlock
         {
             Text = $"{shortcutPrefix}{(favorite ? "★ " : string.Empty)}{action.Icon} {action.Label}",
-            Foreground = action.Destructive ? new SolidColorBrush(Color.FromRgb(255, 180, 180)) : Brushes.White,
+            Foreground = action.Destructive ? new SolidColorBrush(WpfColor.FromRgb(255, 180, 180)) : WpfBrushes.White,
             FontWeight = FontWeights.SemiBold
         };
         content.Children.Add(commandText);
@@ -200,7 +203,7 @@ public partial class ContextAssistPopup : Window
             TextBlock descriptionText = new TextBlock
             {
                 Text = action.Hint,
-                Foreground = new SolidColorBrush(Color.FromRgb(180, 180, 180)),
+                Foreground = new SolidColorBrush(WpfColor.FromRgb(180, 180, 180)),
                 FontSize = 10,
                 Margin = new Thickness(22, 2, 4, 0),
                 TextWrapping = TextWrapping.Wrap,
@@ -254,7 +257,7 @@ public partial class ContextAssistPopup : Window
         SearchResults.Children.Clear();
         foreach (IGrouping<string, ContextAction> category in actions.GroupBy(a => a.Category))
         {
-            SearchResults.Children.Add(new TextBlock { Text = category.Key, Foreground = Brushes.Gray, Margin = new Thickness(6, 8, 2, 2) });
+            SearchResults.Children.Add(new TextBlock { Text = category.Key, Foreground = WpfBrushes.Gray, Margin = new Thickness(6, 8, 2, 2) });
             foreach (ContextAction action in category) SearchResults.Children.Add(CreateActionButton(action, true, 0));
         }
     }
@@ -297,7 +300,7 @@ public partial class ContextAssistPopup : Window
     private (double Width, double Height) MeasureAndUpdateLayout()
     {
         UpdateLayout();
-        Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        Measure(new WpfSize(double.PositiveInfinity, double.PositiveInfinity));
         UpdateLayout();
         return (ActualWidth > 1 ? ActualWidth : (DesiredSize.Width > 1 ? DesiredSize.Width : 260), ActualHeight > 1 ? ActualHeight : (DesiredSize.Height > 1 ? DesiredSize.Height : 56));
     }
