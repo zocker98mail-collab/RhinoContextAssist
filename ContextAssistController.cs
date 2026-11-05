@@ -35,6 +35,10 @@ internal sealed class ContextAssistController : IDisposable
         RhinoView.SetActive += OnActiveViewChanged;
         Rhino.Commands.Command.BeginCommand += OnBeginCommand;
         DisplayPipeline.CalculateBoundingBox += OnCalculateBoundingBox;
+        Rhino.Commands.Command.BeginCommand += OnBeginCommand;
+        RhinoApp.EscapeKeyPressed += OnEscapeKeyPressed;
+        RhinoApp.KeyboardEvent += OnKeyboardEvent;
+
         _timer.Start();
         
         RefreshMouseTrigger();
@@ -128,70 +132,7 @@ internal sealed class ContextAssistController : IDisposable
     }
 
     
-    private void OnBeginCommand(object? sender, Rhino.Commands.CommandEventArgs e)
-    {
-        if (e.CommandEnglishName != null && e.CommandEnglishName.StartsWith("ContextAssist", StringComparison.OrdinalIgnoreCase))
-            return;
-            
-        HideRequest(true);
-    }
-
-    private void Tick()
-    {
-        var doc = RhinoDoc.ActiveDoc;
-        if (!_settings.Enabled || doc == null || Rhino.Commands.Command.InScriptRunnerCommand())
-            return;
-
-        if (_due == DateTime.MaxValue || DateTime.UtcNow < _due)
-            return;
-
-        _due = DateTime.MaxValue;
-        OpenForCurrentSelection(doc);
-    }
-
-    private void OpenForCurrentSelection(RhinoDoc doc)
-    {
-        var context = SelectionAnalyzer.Analyze(doc);
-        if (context.Kind == SelectionKind.None)
-        {
-            if (_popup != null && !_popup.IsPinned) ClosePopupAndConduit();
-            return;
-        }
-
-        var actions = ActionService.Get(context, _settings);
-        if (actions.Count == 0) return;
-
-        var activeView = doc.Views.ActiveView;
-        _lastViewportId = activeView?.ActiveViewportID ?? Guid.Empty;
-
-        if ((_settings.ShowViewportAnchor || _settings.ShowTetherLine) && context.Anchor.IsValid)
-        {
-            _conduit.AnchorWorld = context.Anchor;
-            _conduit.ShowAnchorDot = _settings.ShowViewportAnchor;
-            _conduit.ShowTetherLine = _settings.ShowTetherLine;
-            _conduit.TetherOpacity = _settings.TetherLineOpacity;
-            _conduit.TetherThickness = (float)_settings.TetherLineThickness;
-            _conduit.ActiveViewportId = _lastViewportId;
-            _conduit.Enabled = true;
-            activeView?.Redraw();
-        }
-        else
-        {
-            _conduit.Enabled = false;
-        }
-
-        if (_popup == null)
-        {
-            _popup = new ContextAssistPopup(Execute, HideRequest, _settings, _conduit);
-            _popup.UpdateActions(context, actions);
-            _popup.ShowAt(context, _settings.PositionMode);
-        }
-        else
-        {
-            _popup.UpdateActions(context, actions);
-            _popup.RepositionAndClamp();
-        }
-    }
+    
 
     private void Execute(ContextAction action)
     {
@@ -237,6 +178,10 @@ internal sealed class ContextAssistController : IDisposable
         RhinoDoc.CloseDocument -= OnDocumentEventHide;
         RhinoView.SetActive -= OnActiveViewChanged;
         DisplayPipeline.CalculateBoundingBox -= OnCalculateBoundingBox;
+        Rhino.Commands.Command.BeginCommand -= OnBeginCommand;
+        RhinoApp.EscapeKeyPressed -= OnEscapeKeyPressed;
+        RhinoApp.KeyboardEvent -= OnKeyboardEvent;
+
         Rhino.Commands.Command.BeginCommand -= OnBeginCommand;
         if (_mouseCallback != null)
         {

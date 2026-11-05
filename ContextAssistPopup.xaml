@@ -15,7 +15,6 @@
         <DropShadowEffect x:Key="S" BlurRadius="18" ShadowDepth="3" Opacity="0.35" />
 
         <Style x:Key="B" TargetType="Button">
-            <Setter Property="Foreground" Value="White" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="9,5" />
@@ -26,9 +25,7 @@
             <Setter Property="ToolTipService.ShowDuration" Value="12000" />
         </Style>
 
-        <Style x:Key="Danger" TargetType="Button" BasedOn="{StaticResource B}">
-            <Setter Property="Foreground" Value="#FFFFB4B4" />
-        </Style>
+        
     </Window.Resources>
 
     <!-- ScaleTransform for smooth Ease-Out Entry -->

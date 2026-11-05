@@ -37,6 +37,10 @@ public partial class ContextAssistPopup : Window
     private PopupPositionMode _activeMode;
     private bool _userManuallyDragged;
     private bool _hiddenDueToOffscreen;
+        private Brush _themeTextBrush = WpfBrushes.White;
+    private Brush _themeHintBrush = new SolidColorBrush(WpfColor.FromRgb(180, 180, 180));
+    private Brush _themeDangerBrush = new SolidColorBrush(WpfColor.FromRgb(255, 180, 180));
+    private Brush _themeCategoryBrush = WpfBrushes.Gray;
     private WpfPoint _lastProjectedAnchor = new(double.NaN, double.NaN);
 
     internal ContextAssistPopup(
@@ -194,7 +198,7 @@ public partial class ContextAssistPopup : Window
         TextBlock commandText = new TextBlock
         {
             Text = $"{shortcutPrefix}{(favorite ? "★ " : string.Empty)}{action.Icon} {action.Label}",
-            Foreground = action.Destructive ? new SolidColorBrush(WpfColor.FromRgb(220, 80, 80)) : (TitleText.Foreground == WpfBrushes.DarkGray ? WpfBrushes.Black : WpfBrushes.White),
+            Foreground = action.Destructive ? _themeDangerBrush : _themeTextBrush,
             FontWeight = FontWeights.SemiBold
         };
         content.Children.Add(commandText);
@@ -204,7 +208,7 @@ public partial class ContextAssistPopup : Window
             TextBlock descriptionText = new TextBlock
             {
                 Text = action.Hint,
-                Foreground = TitleText.Foreground == WpfBrushes.DarkGray ? new SolidColorBrush(WpfColor.FromRgb(100, 100, 100)) : new SolidColorBrush(WpfColor.FromRgb(180, 180, 180)),
+                Foreground = _themeHintBrush, 100, 100)) : new SolidColorBrush(WpfColor.FromRgb(180, 180, 180)),
                 FontSize = 10,
                 Margin = new Thickness(22, 2, 4, 0),
                 TextWrapping = TextWrapping.Wrap,
@@ -217,7 +221,7 @@ public partial class ContextAssistPopup : Window
         {
             Content = content,
             Tag = action, // Tag für das Enter-Key-Ausführen im Suchfeld
-            Style = (Style)FindResource(action.Destructive ? "Danger" : "B"),
+            Style = (Style)FindResource("B"),
             HorizontalContentAlignment = detailed ? HorizontalAlignment.Left : HorizontalAlignment.Center,
             MinWidth = detailed ? 285 : 0,
             ToolTip = BuildLearningTooltip(action, englishCommand)
@@ -258,7 +262,7 @@ public partial class ContextAssistPopup : Window
         SearchResults.Children.Clear();
         foreach (IGrouping<string, ContextAction> category in actions.GroupBy(a => a.Category))
         {
-            SearchResults.Children.Add(new TextBlock { Text = category.Key, Foreground = WpfBrushes.Gray, Margin = new Thickness(6, 8, 2, 2) });
+            SearchResults.Children.Add(new TextBlock { Text = category.Key, Foreground = _themeCategoryBrush, Margin = new Thickness(6, 8, 2, 2) });
             foreach (ContextAction action in category) SearchResults.Children.Add(CreateActionButton(action, true, 0));
         }
     }
@@ -493,7 +497,7 @@ public partial class ContextAssistPopup : Window
     }
 
     
-    private void ApplyTheme()
+        private void ApplyTheme()
     {
         bool isDark = true;
         try
@@ -508,6 +512,12 @@ public partial class ContextAssistPopup : Window
             RootBorder.Background = new SolidColorBrush(WpfColor.FromArgb(239, 40, 40, 40));
             More.PopupAnimation = PopupAnimation.Fade;
             if (More.Child is Border b) b.Background = new SolidColorBrush(WpfColor.FromArgb(252, 40, 40, 40));
+            
+            _themeTextBrush = WpfBrushes.White;
+            _themeHintBrush = new SolidColorBrush(WpfColor.FromRgb(180, 180, 180));
+            _themeDangerBrush = new SolidColorBrush(WpfColor.FromRgb(255, 180, 180));
+            _themeCategoryBrush = WpfBrushes.Gray;
+            
             TitleText.Foreground = WpfBrushes.LightGray;
             SearchBox.Foreground = WpfBrushes.White;
             SearchBox.Background = new SolidColorBrush(WpfColor.FromArgb(50, 255, 255, 255));
@@ -517,11 +527,19 @@ public partial class ContextAssistPopup : Window
         {
             RootBorder.Background = new SolidColorBrush(WpfColor.FromArgb(245, 245, 245, 245));
             if (More.Child is Border b) b.Background = new SolidColorBrush(WpfColor.FromArgb(252, 245, 245, 245));
+            
+            _themeTextBrush = new SolidColorBrush(WpfColor.FromRgb(30, 30, 30));
+            _themeHintBrush = new SolidColorBrush(WpfColor.FromRgb(100, 100, 100));
+            _themeDangerBrush = new SolidColorBrush(WpfColor.FromRgb(220, 40, 40));
+            _themeCategoryBrush = new SolidColorBrush(WpfColor.FromRgb(90, 90, 90));
+            
             TitleText.Foreground = WpfBrushes.DarkGray;
             SearchBox.Foreground = WpfBrushes.Black;
             SearchBox.Background = new SolidColorBrush(WpfColor.FromArgb(50, 0, 0, 0));
             SearchBox.BorderBrush = new SolidColorBrush(WpfColor.FromArgb(30, 0, 0, 0));
         }
+        
+        this.Foreground = _themeTextBrush;
     }
 
     private void UpdateCameraTrackingAndOcclusion()
@@ -588,6 +606,7 @@ public partial class ContextAssistPopup : Window
     };
 
     public bool IsPinned => PinButton.IsChecked == true;
+    public bool IsSearchFocused => SearchBox.IsFocused;
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     private static extern IntPtr SetWindowLongPtr(IntPtr windowHandle, int index, IntPtr value);
