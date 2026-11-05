@@ -263,7 +263,7 @@ internal sealed class ContextAssistOptionsControl : Panel
 
         _settings.ShowViewportAnchor = _showViewportAnchor.Checked == true;
         _settings.ShowTetherLine = _showTetherLine.Checked == true;
-        _settings.TetherOpacity = (int)_tetherOpacity.Value;
+        _settings.TetherLineOpacity = (int)_tetherOpacity.Value;
         _settings.TetherLineThickness = _tetherThickness.Value;
         _settings.FollowCameraMovement = _followCameraMovement.Checked == true;
         _settings.AutoHideWhenAnchorOffscreen = _autoHideOffscreen.Checked == true;

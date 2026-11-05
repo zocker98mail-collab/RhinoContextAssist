@@ -249,16 +249,16 @@ internal sealed class ContextAssistController : IDisposable
         protected override void OnMouseDown(MouseCallbackEventArgs e)
         {
             bool trigger = false;
-            if (Settings.ShortcutButton == MouseTriggerButton.Middle && e.Button == System.Windows.Forms.MouseButtons.Middle) trigger = true;
-            if (Settings.ShortcutButton == MouseTriggerButton.XButton1 && e.Button == System.Windows.Forms.MouseButtons.XButton1) trigger = true;
-            if (Settings.ShortcutButton == MouseTriggerButton.XButton2 && e.Button == System.Windows.Forms.MouseButtons.XButton2) trigger = true;
+            if (Settings.ShortcutButton == MouseTriggerButton.Middle && (int)e.Button == 4194304) trigger = true;
+            if (Settings.ShortcutButton == MouseTriggerButton.XButton1 && (int)e.Button == 8388608) trigger = true;
+            if (Settings.ShortcutButton == MouseTriggerButton.XButton2 && (int)e.Button == 16777216) trigger = true;
 
             if (trigger && e.View != null)
             {
                 _ctrl.ShowNow();
                 // Wenn es eine Daumentaste (XButton) ist, blockieren wir das Event, 
                 // damit Rhino nicht versehentlich in Ansichten navigiert
-                if (e.Button != System.Windows.Forms.MouseButtons.Middle)
+                if ((int)e.Button != 4194304)
                     e.Cancel = true;
             }
             base.OnMouseDown(e);

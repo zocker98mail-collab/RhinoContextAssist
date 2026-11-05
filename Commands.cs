@@ -19,7 +19,7 @@ public sealed class ContextAssistToggleCommand : RhinoCommand
         plugin.SettingsModel.Save();
 
         if (!plugin.SettingsModel.Enabled)
-            plugin.Controller?.Hide();
+            plugin.Controller?.HideRequest(true);
 
         RhinoApp.WriteLine(plugin.SettingsModel.Enabled
             ? "Rhino Context Assist: Aktiviert."
