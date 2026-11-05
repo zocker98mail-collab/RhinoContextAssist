@@ -46,6 +46,7 @@ public partial class ContextAssistPopup : Window
         ContextAssistAnchorConduit? conduit = null)
     {
         InitializeComponent();
+        ApplyTheme();
         _execute = execute;
         _requestClose = requestClose;
         _settings = settings;
@@ -193,7 +194,7 @@ public partial class ContextAssistPopup : Window
         TextBlock commandText = new TextBlock
         {
             Text = $"{shortcutPrefix}{(favorite ? "★ " : string.Empty)}{action.Icon} {action.Label}",
-            Foreground = action.Destructive ? new SolidColorBrush(WpfColor.FromRgb(255, 180, 180)) : WpfBrushes.White,
+            Foreground = action.Destructive ? new SolidColorBrush(WpfColor.FromRgb(220, 80, 80)) : (TitleText.Foreground == WpfBrushes.DarkGray ? WpfBrushes.Black : WpfBrushes.White),
             FontWeight = FontWeights.SemiBold
         };
         content.Children.Add(commandText);
@@ -203,7 +204,7 @@ public partial class ContextAssistPopup : Window
             TextBlock descriptionText = new TextBlock
             {
                 Text = action.Hint,
-                Foreground = new SolidColorBrush(WpfColor.FromRgb(180, 180, 180)),
+                Foreground = TitleText.Foreground == WpfBrushes.DarkGray ? new SolidColorBrush(WpfColor.FromRgb(100, 100, 100)) : new SolidColorBrush(WpfColor.FromRgb(180, 180, 180)),
                 FontSize = 10,
                 Margin = new Thickness(22, 2, 4, 0),
                 TextWrapping = TextWrapping.Wrap,
@@ -488,6 +489,38 @@ public partial class ContextAssistPopup : Window
             // Ignoriere Auto-Hide, wenn Pin gesetzt ist!
             if (PinButton.IsChecked != true && _settings.AutoHideMs > 0 && (now - _lastInteraction).TotalMilliseconds >= _settings.AutoHideMs)
                 _requestClose(false);
+        }
+    }
+
+    
+    private void ApplyTheme()
+    {
+        bool isDark = true;
+        try
+        {
+            var c = Rhino.ApplicationSettings.AppearanceSettings.GetPaintColor(Rhino.ApplicationSettings.PaintColor.NormalStart);
+            isDark = (c.R + c.G + c.B) / 3 < 128;
+        }
+        catch { }
+
+        if (isDark)
+        {
+            RootBorder.Background = new SolidColorBrush(WpfColor.FromArgb(239, 40, 40, 40));
+            More.PopupAnimation = PopupAnimation.Fade;
+            if (More.Child is Border b) b.Background = new SolidColorBrush(WpfColor.FromArgb(252, 40, 40, 40));
+            TitleText.Foreground = WpfBrushes.LightGray;
+            SearchBox.Foreground = WpfBrushes.White;
+            SearchBox.Background = new SolidColorBrush(WpfColor.FromArgb(50, 255, 255, 255));
+            SearchBox.BorderBrush = new SolidColorBrush(WpfColor.FromArgb(30, 255, 255, 255));
+        }
+        else
+        {
+            RootBorder.Background = new SolidColorBrush(WpfColor.FromArgb(245, 245, 245, 245));
+            if (More.Child is Border b) b.Background = new SolidColorBrush(WpfColor.FromArgb(252, 245, 245, 245));
+            TitleText.Foreground = WpfBrushes.DarkGray;
+            SearchBox.Foreground = WpfBrushes.Black;
+            SearchBox.Background = new SolidColorBrush(WpfColor.FromArgb(50, 0, 0, 0));
+            SearchBox.BorderBrush = new SolidColorBrush(WpfColor.FromArgb(30, 0, 0, 0));
         }
     }
 

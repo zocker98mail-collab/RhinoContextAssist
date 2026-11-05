@@ -33,6 +33,7 @@ internal sealed class ContextAssistController : IDisposable
         RhinoDoc.BeginSaveDocument += OnDocumentEventHide;
         RhinoDoc.CloseDocument += OnDocumentEventHide;
         RhinoView.SetActive += OnActiveViewChanged;
+        Rhino.Commands.Command.BeginCommand += OnBeginCommand;
         DisplayPipeline.CalculateBoundingBox += OnCalculateBoundingBox;
         _timer.Start();
         
@@ -124,6 +125,15 @@ internal sealed class ContextAssistController : IDisposable
     {
         if (_popup is { IsVisible: true } && _settings.FollowCameraMovement)
             _popup.OnViewportCameraChanged();
+    }
+
+    
+    private void OnBeginCommand(object? sender, Rhino.Commands.CommandEventArgs e)
+    {
+        if (e.CommandEnglishName != null && e.CommandEnglishName.StartsWith("ContextAssist", StringComparison.OrdinalIgnoreCase))
+            return;
+            
+        HideRequest(true);
     }
 
     private void Tick()
@@ -227,6 +237,7 @@ internal sealed class ContextAssistController : IDisposable
         RhinoDoc.CloseDocument -= OnDocumentEventHide;
         RhinoView.SetActive -= OnActiveViewChanged;
         DisplayPipeline.CalculateBoundingBox -= OnCalculateBoundingBox;
+        Rhino.Commands.Command.BeginCommand -= OnBeginCommand;
         if (_mouseCallback != null)
         {
             _mouseCallback.Enabled = false;

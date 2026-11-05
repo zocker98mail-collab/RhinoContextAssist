@@ -122,9 +122,113 @@ internal sealed class ContextAssistOptionsControl : Panel
         tabs.Pages.Add(new TabPage { Text = "Darstellung & Zeiten", Content = displayLayout });
         tabs.Pages.Add(new TabPage { Text = "Hybrid & Ergonomie", Content = hybridLayout });
         tabs.Pages.Add(new TabPage { Text = "Aktionen & Transfer", Content = actionsLayout });
+        BuildCustomEditorTab(tabs);
 
         Content = tabs;
         LoadSettingsIntoControls();
+    }
+
+    
+    // Editor Felder
+    private readonly ListBox _customActionsList = new() { Height = 150 };
+    private readonly TextBox _caId = new();
+    private readonly TextBox _caIcon = new() { MaxLength = 2, Width = 40 };
+    private readonly TextBox _caLabel = new();
+    private readonly TextBox _caMacro = new();
+    private readonly TextBox _caHint = new();
+    private readonly DropDown _caKind = new();
+    
+    private void BuildCustomEditorTab(TabControl tabs)
+    {
+        var btnAdd = CreateSmallButton("Neu", 60);
+        var btnSave = CreateSmallButton("Speichern", 80);
+        var btnDel = CreateSmallButton("Löschen", 70);
+
+        foreach (var kind in ActionCatalog.Kinds) _caKind.Items.Add(kind.ToString());
+        if (_caKind.Items.Count > 0) _caKind.SelectedIndex = 0;
+
+        btnAdd.Click += (_, _) => { ClearEditor(); _customActionsList.SelectedIndex = -1; };
+        btnSave.Click += (_, _) => SaveCustomAction();
+        btnDel.Click += (_, _) => DeleteCustomAction();
+        _customActionsList.SelectedIndexChanged += (_, _) => LoadSelectedCustomAction();
+
+        var editorForm = new DynamicLayout { Spacing = new Eto.Drawing.Size(6, 6) };
+        editorForm.AddRow(new Label { Text = "Interne ID (z.B. my_macro):" }, _caId);
+        editorForm.AddRow(new Label { Text = "Icon (1-2 Zeichen):" }, _caIcon);
+        editorForm.AddRow(new Label { Text = "Button-Text:" }, _caLabel);
+        editorForm.AddRow(new Label { Text = "Makro (z.B. _Line):" }, _caMacro);
+        editorForm.AddRow(new Label { Text = "Tooltip-Beschreibung:" }, _caHint);
+        editorForm.AddRow(new Label { Text = "Objekttyp (Ziel):" }, _caKind);
+        editorForm.AddRow(CreateButtonRow(btnAdd, btnSave, btnDel));
+
+        var layout = new DynamicLayout { Padding = 10, Spacing = new Eto.Drawing.Size(6, 6) };
+        layout.AddRow(new Label { Text = "Deine eigenen Befehle (werden automatisch priorisiert):" });
+        layout.AddRow(_customActionsList);
+        layout.AddSpace();
+        layout.AddRow(editorForm);
+        
+        tabs.Pages.Add(new TabPage { Text = "Eigene Befehle (Editor)", Content = layout });
+        RefreshCustomActionsList();
+    }
+
+    private void ClearEditor()
+    {
+        _caId.Text = ""; _caIcon.Text = ""; _caLabel.Text = ""; _caMacro.Text = ""; _caHint.Text = "";
+    }
+
+    private void RefreshCustomActionsList()
+    {
+        _customActionsList.Items.Clear();
+        foreach (var a in _settings.CustomActions)
+            _customActionsList.Items.Add($"[{a.Requirement}] {a.Icon} {a.Label}");
+    }
+
+    private void LoadSelectedCustomAction()
+    {
+        if (_customActionsList.SelectedIndex < 0 || _customActionsList.SelectedIndex >= _settings.CustomActions.Count) return;
+        var a = _settings.CustomActions[_customActionsList.SelectedIndex];
+        _caId.Text = a.Id;
+        _caIcon.Text = a.Icon;
+        _caLabel.Text = a.Label;
+        _caMacro.Text = a.Macro;
+        _caHint.Text = a.Hint;
+        
+        for (int i = 0; i < _caKind.Items.Count; i++)
+        {
+            if (_caKind.Items[i].Text == a.Requirement) { _caKind.SelectedIndex = i; break; }
+        }
+    }
+
+    private void SaveCustomAction()
+    {
+        if (string.IsNullOrWhiteSpace(_caId.Text) || string.IsNullOrWhiteSpace(_caMacro.Text)) return;
+        var newAction = new ContextAction(
+            _caId.Text.Trim(),
+            string.IsNullOrWhiteSpace(_caIcon.Text) ? "❖" : _caIcon.Text.Trim(),
+            _caLabel.Text.Trim(),
+            _caMacro.Text.Trim(),
+            _caHint.Text.Trim(),
+            "Eigene Befehle",
+            false,
+            _caKind.SelectedIndex >= 0 ? _caKind.Items[_caKind.SelectedIndex].Text : "Any",
+            true
+        );
+
+        int idx = _settings.CustomActions.FindIndex(a => a.Id == newAction.Id);
+        if (idx >= 0) _settings.CustomActions[idx] = newAction;
+        else _settings.CustomActions.Add(newAction);
+
+        _settings.Save();
+        RefreshCustomActionsList();
+    }
+
+    private void DeleteCustomAction()
+    {
+        if (_customActionsList.SelectedIndex < 0 || _customActionsList.SelectedIndex >= _settings.CustomActions.Count) return;
+        _settings.CustomActions.RemoveAt(_customActionsList.SelectedIndex);
+        _settings.Save();
+        ClearEditor();
+        RefreshCustomActionsList();
     }
 
     private static NumericStepper CreateNumber(double min, double max, double increment = 1) => new() { MinValue = min, MaxValue = max, Increment = increment, DecimalPlaces = 0 };
