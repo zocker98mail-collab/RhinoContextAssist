@@ -21,4 +21,7 @@
     <Compile Remove="**/AssemblyInfo.cs" />
     <Compile Remove="ContextToolbarForm.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
 </Project>
