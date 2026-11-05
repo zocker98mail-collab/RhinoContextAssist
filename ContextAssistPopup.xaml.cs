@@ -106,8 +106,6 @@ public partial class ContextAssistPopup : Window
             RenderResults(_allActions.Skip(_primaryActions.Count));
             AdjustMorePopupPlacementAndClamp();
         }
-
-        InitializeLayerButton();
         else
         {
             RepositionAndClamp();
@@ -618,7 +616,7 @@ public partial class ContextAssistPopup : Window
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         _requestClose(true);
-        RhinoApp.RunScript("_-Options _Page "Context Assist" _Enter", false);
+        RhinoApp.RunScript("_-Options _Page \"Context Assist\" _Enter", false);
     }
 
     private void InitializeLayerButton()
