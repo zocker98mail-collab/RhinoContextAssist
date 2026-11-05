@@ -28,6 +28,7 @@ internal sealed class ContextAssistSettings
     public int CornerMarginPx { get; set; }
     public int IdleOpacity { get; set; }
     public int ActiveOpacity { get; set; }
+    public double UiScale { get; set; } = 1.0;
 
     public bool ShowViewportAnchor { get; set; }
     public bool ShowTetherLine { get; set; }
@@ -69,6 +70,7 @@ internal sealed class ContextAssistSettings
         CornerMarginPx = Math.Clamp(_store.GetInteger("Margin", 90), 20, 350);
         IdleOpacity = Math.Clamp(_store.GetInteger("Idle", 42), 15, 100);
         ActiveOpacity = Math.Clamp(_store.GetInteger("Active", 100), 30, 100);
+        UiScale = Math.Clamp(_store.GetDouble("UiScale", 1.0), 0.5, 3.0);
 
         ShowViewportAnchor = _store.GetBool("ShowViewportAnchor", true);
         ShowTetherLine = _store.GetBool("ShowTetherLine", false);
@@ -165,6 +167,7 @@ internal sealed class ContextAssistSettings
         _store.SetInteger("Margin", CornerMarginPx);
         _store.SetInteger("Idle", IdleOpacity);
         _store.SetInteger("Active", ActiveOpacity);
+        _store.SetDouble("UiScale", UiScale);
 
         _store.SetBool("ShowViewportAnchor", ShowViewportAnchor);
         _store.SetBool("ShowTetherLine", ShowTetherLine);
@@ -216,6 +219,7 @@ internal sealed class ContextAssistSettings
             DynamicOffsetPx: DynamicOffsetPx,
             EnableEdgeSnapping: EnableEdgeSnapping,
             EdgeSnapDistancePx: EdgeSnapDistancePx,
+            UiScale: UiScale,
             EnableNumberShortcuts: EnableNumberShortcuts,
             ShortcutButton: ShortcutButton,
             HighlightHoveredGeometry: HighlightHoveredGeometry,
@@ -258,6 +262,7 @@ internal sealed class ContextAssistSettings
             DynamicOffsetPx = Math.Clamp(dto.DynamicOffsetPx, 0, 200);
             EnableEdgeSnapping = dto.EnableEdgeSnapping;
             EdgeSnapDistancePx = Math.Clamp(dto.EdgeSnapDistancePx > 0 ? dto.EdgeSnapDistancePx : 28, 8, 80);
+            UiScale = Math.Clamp(dto.UiScale > 0 ? dto.UiScale : 1.0, 0.5, 3.0);
 
             EnableNumberShortcuts = dto.EnableNumberShortcuts;
             ShortcutButton = dto.ShortcutButton;

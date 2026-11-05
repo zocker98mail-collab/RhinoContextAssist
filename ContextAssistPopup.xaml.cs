@@ -93,6 +93,8 @@ public partial class ContextAssistPopup : Window
             SearchBox_TextChanged(SearchBox, null!);
             AdjustMorePopupPlacementAndClamp();
         }
+
+        InitializeLayerButton();
     }
 
     private void ToggleMoreMenu()
@@ -104,6 +106,8 @@ public partial class ContextAssistPopup : Window
             RenderResults(_allActions.Skip(_primaryActions.Count));
             AdjustMorePopupPlacementAndClamp();
         }
+
+        InitializeLayerButton();
         else
         {
             RepositionAndClamp();
@@ -298,6 +302,7 @@ public partial class ContextAssistPopup : Window
         BeginAnimation(OpacityProperty, fade);
         RootScale.BeginAnimation(ScaleTransform.ScaleXProperty, scale);
         RootScale.BeginAnimation(ScaleTransform.ScaleYProperty, scale);
+        RootBorder.LayoutTransform = new ScaleTransform(_settings.UiScale, _settings.UiScale);
 
         _timer.Start();
     }
@@ -540,6 +545,7 @@ public partial class ContextAssistPopup : Window
         }
         
         this.Foreground = _themeTextBrush;
+        LayerButton.Background = new SolidColorBrush(isDark ? WpfColor.FromArgb(15, 255, 255, 255) : WpfColor.FromArgb(15, 0, 0, 0));
     }
 
     private void UpdateCameraTrackingAndOcclusion()
@@ -607,6 +613,89 @@ public partial class ContextAssistPopup : Window
 
     public bool IsPinned => PinButton.IsChecked == true;
     public bool IsSearchFocused => SearchBox.IsFocused;
+
+    
+    private void Settings_Click(object sender, RoutedEventArgs e)
+    {
+        _requestClose(true);
+        RhinoApp.RunScript("_-Options _Page "Context Assist" _Enter", false);
+    }
+
+    private void InitializeLayerButton()
+    {
+        var doc = RhinoDoc.ActiveDoc;
+        if (doc == null) return;
+        
+        var selectedObjects = doc.Objects.GetSelectedObjects(false, false).ToList();
+        if (selectedObjects.Count == 0)
+        {
+            LayerButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+        LayerButton.Visibility = Visibility.Visible;
+        
+        var firstLayerIndex = selectedObjects.First().Attributes.LayerIndex;
+        bool sameLayer = selectedObjects.All(o => o.Attributes.LayerIndex == firstLayerIndex);
+        
+        if (sameLayer)
+        {
+            var layer = doc.Layers.FindIndex(firstLayerIndex);
+            string name = layer?.Name ?? "Unbekannt";
+            System.Drawing.Color c = layer?.Color ?? System.Drawing.Color.Black;
+            
+            StackPanel sp = new StackPanel { Orientation = Orientation.Horizontal };
+            var ell = new System.Windows.Shapes.Ellipse { 
+                Width = 10, Height = 10, 
+                Fill = new SolidColorBrush(WpfColor.FromRgb(c.R, c.G, c.B)), 
+                Margin = new Thickness(0,0,6,0), 
+                VerticalAlignment = VerticalAlignment.Center 
+            };
+            sp.Children.Add(ell);
+            sp.Children.Add(new TextBlock { 
+                Text = $"Layer: {name}", 
+                Foreground = _themeTextBrush 
+            });
+            LayerButton.Content = sp;
+        }
+        else
+        {
+            LayerButton.Content = "Layer: Mehrere ausgewählt";
+        }
+    }
+    
+    private void LayerButton_Click(object sender, RoutedEventArgs e)
+    {
+        var doc = RhinoDoc.ActiveDoc;
+        if (doc == null) return;
+        
+        var menu = new ContextMenu();
+        menu.Background = RootBorder.Background;
+        menu.Foreground = _themeTextBrush;
+        menu.BorderBrush = SearchBox.BorderBrush;
+        
+        foreach (var layer in doc.Layers.Where(l => !l.IsDeleted).OrderBy(l => l.FullPath))
+        {
+            var item = new MenuItem { Header = layer.FullPath };
+            var c = layer.Color;
+            item.Icon = new System.Windows.Shapes.Ellipse { 
+                Width = 12, Height = 12, 
+                Fill = new SolidColorBrush(WpfColor.FromRgb(c.R, c.G, c.B)) 
+            };
+            item.Click += (s, args) => {
+                var selectedObjects = doc.Objects.GetSelectedObjects(false, false).ToList();
+                foreach (var obj in selectedObjects)
+                {
+                    obj.Attributes.LayerIndex = layer.Index;
+                    obj.CommitChanges();
+                }
+                doc.Views.Redraw();
+                InitializeLayerButton();
+            };
+            menu.Items.Add(item);
+        }
+        menu.PlacementTarget = LayerButton;
+        menu.IsOpen = true;
+    }
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     private static extern IntPtr SetWindowLongPtr(IntPtr windowHandle, int index, IntPtr value);

@@ -88,6 +88,7 @@ internal sealed record SettingsExportDto(
     int DynamicOffsetPx,
     bool EnableEdgeSnapping,
     int EdgeSnapDistancePx,
+    double UiScale,
     bool EnableNumberShortcuts,
     MouseTriggerButton ShortcutButton,
     bool HighlightHoveredGeometry,

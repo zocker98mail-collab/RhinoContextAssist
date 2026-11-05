@@ -31,6 +31,7 @@ internal sealed class ContextAssistOptionsControl : Panel
     private readonly NumericStepper _autoHideDelay = CreateNumber(0, 30000, 500);
     private readonly NumericStepper _idleOpacity = CreateNumber(15, 100, 5);
     private readonly NumericStepper _activeOpacity = CreateNumber(30, 100, 5);
+    private readonly NumericStepper _uiScale = new() { MinValue = 0.5, MaxValue = 3.0, Increment = 0.1, DecimalPlaces = 2 };
 
     private readonly CheckBox _showViewportAnchor = new() { Text = "Viewport-Ankerpunkt an Auswahl anzeigen" };
     private readonly CheckBox _showTetherLine = new() { Text = "Dezente Verbindungslinie zur Toolbar zeichnen" };
@@ -90,6 +91,7 @@ internal sealed class ContextAssistOptionsControl : Panel
         displayLayout.AddRow(new Label { Text = "Auto-Hide (ms, 0 = aus)" }, _autoHideDelay);
         displayLayout.AddRow(new Label { Text = "Ruhe-Deckkraft (%)" }, _idleOpacity);
         displayLayout.AddRow(new Label { Text = "Aktive Deckkraft (%)" }, _activeOpacity);
+        displayLayout.AddRow(new Label { Text = "UI Skalierung (z.B. 1.25)" }, _uiScale);
         displayLayout.AddSpace();
 
         var hybridLayout = new DynamicLayout { Padding = 10, Spacing = new Eto.Drawing.Size(6, 6) };
@@ -250,6 +252,7 @@ internal sealed class ContextAssistOptionsControl : Panel
         _autoHideDelay.Value = _settings.AutoHideMs;
         _idleOpacity.Value = _settings.IdleOpacity;
         _activeOpacity.Value = _settings.ActiveOpacity;
+        _uiScale.Value = _settings.UiScale;
 
         _showViewportAnchor.Checked = _settings.ShowViewportAnchor;
         _showTetherLine.Checked = _settings.ShowTetherLine;
@@ -364,6 +367,7 @@ internal sealed class ContextAssistOptionsControl : Panel
         _settings.AutoHideMs = (int)_autoHideDelay.Value;
         _settings.IdleOpacity = (int)_idleOpacity.Value;
         _settings.ActiveOpacity = (int)_activeOpacity.Value;
+        _settings.UiScale = _uiScale.Value;
 
         _settings.ShowViewportAnchor = _showViewportAnchor.Checked == true;
         _settings.ShowTetherLine = _showTetherLine.Checked == true;

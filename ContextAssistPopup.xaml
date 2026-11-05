@@ -57,6 +57,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <!-- Visible Drag Grip -->
@@ -65,14 +66,16 @@
                     <TextBlock x:Name="TitleText" Grid.Column="1" VerticalAlignment="Center" Foreground="#DDD" />
 
                     <!-- Pin Button -->
-                    <ToggleButton x:Name="PinButton" Grid.Column="2" Content="📌" 
+                    <Button x:Name="SettingsButton" Grid.Column="2" Content="⚙" Style="{StaticResource B}" Margin="0,0,2,0" ToolTip="Einstellungen öffnen" Click="Settings_Click" />
+                    <ToggleButton x:Name="PinButton" Grid.Column="3" Content="📌" 
                                   Background="Transparent" BorderThickness="0" Foreground="#AAA"
                                   Margin="5,0,5,0" Cursor="Hand" ToolTip="Leiste anheften (Auto-Hide und Auswahlaufhebung ignorieren)" />
 
-                    <Button Grid.Column="3" Content="×" Style="{StaticResource B}" ToolTip="Schließen (Esc)" Click="Close_Click" />
+                    <Button Grid.Column="4" Content="×" Style="{StaticResource B}" ToolTip="Schließen (Esc)" Click="Close_Click" />
                 </Grid>
 
                 <StackPanel x:Name="Primary" Orientation="Horizontal" />
+                <Button x:Name="LayerButton" Style="{StaticResource B}" HorizontalContentAlignment="Left" Margin="2,4,2,2" Click="LayerButton_Click" ToolTip="Objekt-Layer ändern" />
 
                 <Popup x:Name="More" Placement="Bottom" AllowsTransparency="True" StaysOpen="True" Opened="More_Opened">
                     <Border Background="#FC282828" CornerRadius="10" Padding="6" Effect="{StaticResource S}">
