@@ -208,7 +208,7 @@ public partial class ContextAssistPopup : Window
             TextBlock descriptionText = new TextBlock
             {
                 Text = action.Hint,
-                Foreground = _themeHintBrush, 100, 100)) : new SolidColorBrush(WpfColor.FromRgb(180, 180, 180)),
+                Foreground = _themeHintBrush,
                 FontSize = 10,
                 Margin = new Thickness(22, 2, 4, 0),
                 TextWrapping = TextWrapping.Wrap,
