@@ -4,58 +4,32 @@ namespace RhinoContextAssist;
 
 internal enum SelectionKind
 {
-    None,
-    Multiple,
-    MultipleEnvelopeObjects,
-    Mixed,
-    Curve,
-    ClosedPlanarCurve,
-    Surface,
-    PlanarSurface,
-    Brep,
-    SolidBrep,
-    BrepFace,
-    PlanarBrepFace,
-    BrepEdge,
-    Mesh,
-    MeshFace,
-    MeshEdge,
-    MeshVertex,
-    SubD,
-    SubDFace,
-    SubDEdge,
-    SubDVertex,
-    Block
+    None, Multiple, MultipleEnvelopeObjects, Mixed, Curve, ClosedPlanarCurve, Surface, PlanarSurface,
+    Brep, SolidBrep, BrepFace, PlanarBrepFace, BrepEdge, Mesh, MeshFace, MeshEdge, MeshVertex,
+    SubD, SubDFace, SubDEdge, SubDVertex, Block
 }
 
 internal enum ContextLevel
 {
-    Basic,
-    Planar,
-    Open,
-    Closed,
-    SubObject,
-    Multiple,
-    BlockInstance
+    Basic, Planar, Open, Closed, SubObject, Multiple, BlockInstance
 }
 
 internal enum PopupPositionMode
 {
-    Mouse,
-    Geometry,
-    GeometryOffset,
-    AutoViewportCorner,
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    BottomRight
+    Mouse, Geometry, GeometryOffset, AutoViewportCorner, TopLeft, TopRight, BottomLeft, BottomRight
 }
 
 internal enum PopupUxMode
 {
-    Direct,
-    Compact,
-    Manual
+    Direct, Compact, Manual
+}
+
+internal enum MouseTriggerButton
+{
+    None,
+    Middle,
+    XButton1,
+    XButton2
 }
 
 internal sealed record SelectionContext(
@@ -114,6 +88,9 @@ internal sealed record SettingsExportDto(
     int DynamicOffsetPx,
     bool EnableEdgeSnapping,
     int EdgeSnapDistancePx,
+    bool EnableNumberShortcuts,
+    MouseTriggerButton ShortcutButton,
+    bool HighlightHoveredGeometry,
     List<ContextAction>? CustomActions,
     Dictionary<string, List<ActionPreference>>? Preferences,
     Dictionary<string, UsageEntry>? Usage);

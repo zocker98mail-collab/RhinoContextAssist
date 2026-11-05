@@ -8,12 +8,11 @@
         ShowActivated="False"
         Topmost="True"
         SizeToContent="WidthAndHeight"
-        ResizeMode="NoResize">
+        ResizeMode="NoResize"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    
     <Window.Resources>
-        <DropShadowEffect x:Key="S"
-                          BlurRadius="16"
-                          ShadowDepth="2"
-                          Opacity="0.35" />
+        <DropShadowEffect x:Key="S" BlurRadius="18" ShadowDepth="3" Opacity="0.35" />
 
         <Style x:Key="B" TargetType="Button">
             <Setter Property="Foreground" Value="White" />
@@ -27,71 +26,67 @@
             <Setter Property="ToolTipService.ShowDuration" Value="12000" />
         </Style>
 
-        <Style x:Key="Danger"
-               TargetType="Button"
-               BasedOn="{StaticResource B}">
+        <Style x:Key="Danger" TargetType="Button" BasedOn="{StaticResource B}">
             <Setter Property="Foreground" Value="#FFFFB4B4" />
         </Style>
     </Window.Resources>
 
+    <!-- ScaleTransform for smooth Ease-Out Entry -->
     <Border x:Name="RootBorder"
             Background="#EF282828"
             CornerRadius="12"
             Padding="5"
-            Effect="{StaticResource S}">
+            Effect="{StaticResource S}"
+            RenderTransformOrigin="0.5, 0.5">
+        <Border.RenderTransform>
+            <ScaleTransform x:Name="RootScale" ScaleX="0.95" ScaleY="0.95"/>
+        </Border.RenderTransform>
+        
         <Grid>
             <Button x:Name="Pill"
                     Style="{StaticResource B}"
                     Click="Pill_Click" />
 
-            <StackPanel x:Name="Expanded"
-                        Visibility="Collapsed">
+            <StackPanel x:Name="Expanded" Visibility="Collapsed">
                 <Grid x:Name="HeaderBar"
-                      Margin="5,2"
+                      Margin="2,0,5,2"
                       Background="Transparent"
                       Cursor="SizeAll"
                       MouseLeftButtonDown="HeaderBar_MouseLeftButtonDown"
                       ToolTip="Ziehen zum Verschieben (rastet optional magnetisch an Viewport-Rändern ein)">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock x:Name="TitleText"
-                               VerticalAlignment="Center"
-                               Foreground="#DDD" />
+                    <!-- Visible Drag Grip -->
+                    <TextBlock Grid.Column="0" Text="⋮⋮" Foreground="#777" Margin="4,0,8,0" VerticalAlignment="Center" FontSize="14" FontWeight="Bold"/>
+                    
+                    <TextBlock x:Name="TitleText" Grid.Column="1" VerticalAlignment="Center" Foreground="#DDD" />
 
-                    <Button Grid.Column="1"
-                            Content="×"
-                            Style="{StaticResource B}"
-                            ToolTip="Schließen"
-                            Click="Close_Click" />
+                    <!-- Pin Button -->
+                    <ToggleButton x:Name="PinButton" Grid.Column="2" Content="📌" 
+                                  Background="Transparent" BorderThickness="0" Foreground="#AAA"
+                                  Margin="5,0,5,0" Cursor="Hand" ToolTip="Leiste anheften (Auto-Hide und Auswahlaufhebung ignorieren)" />
+
+                    <Button Grid.Column="3" Content="×" Style="{StaticResource B}" ToolTip="Schließen (Esc)" Click="Close_Click" />
                 </Grid>
 
-                <StackPanel x:Name="Primary"
-                            Orientation="Horizontal" />
+                <StackPanel x:Name="Primary" Orientation="Horizontal" />
 
-                <Popup x:Name="More"
-                       Placement="Bottom"
-                       AllowsTransparency="True"
-                       StaysOpen="True">
-                    <Border Background="#FC282828"
-                            CornerRadius="10"
-                            Padding="6"
-                            Effect="{StaticResource S}">
+                <Popup x:Name="More" Placement="Bottom" AllowsTransparency="True" StaysOpen="True" Opened="More_Opened">
+                    <Border Background="#FC282828" CornerRadius="10" Padding="6" Effect="{StaticResource S}">
                         <StackPanel Width="310">
                             <TextBox x:Name="SearchBox"
-                                     Margin="3"
-                                     Padding="6"
+                                     Margin="3" Padding="6"
                                      ToolTip="Befehl nach deutschem Namen, Beschreibung, Kategorie oder englischem Makro suchen"
-                                     ToolTipService.InitialShowDelay="180"
-                                     ToolTipService.BetweenShowDelay="0"
-                                     ToolTipService.ShowDuration="12000"
-                                     TextChanged="SearchBox_TextChanged" />
+                                     ToolTipService.InitialShowDelay="180" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="12000"
+                                     TextChanged="SearchBox_TextChanged"
+                                     PreviewKeyDown="SearchBox_PreviewKeyDown" />
 
-                            <ScrollViewer x:Name="MoreScrollViewer"
-                                          MaxHeight="420"
-                                          VerticalScrollBarVisibility="Auto">
+                            <ScrollViewer x:Name="MoreScrollViewer" MaxHeight="420" VerticalScrollBarVisibility="Auto">
                                 <StackPanel x:Name="SearchResults" />
                             </ScrollViewer>
                         </StackPanel>

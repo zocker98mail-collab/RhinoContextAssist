@@ -3,6 +3,7 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
+using Rhino.Input.Custom;
 
 namespace RhinoContextAssist;
 
@@ -14,6 +15,7 @@ internal sealed class ContextAssistController : IDisposable
     private ContextAssistPopup? _popup;
     private DateTime _due = DateTime.MaxValue;
     private Guid _lastViewportId = Guid.Empty;
+    private ShortcutMouseCallback? _mouseCallback;
 
     public ContextAssistController(ContextAssistSettings settings)
     {
@@ -33,15 +35,39 @@ internal sealed class ContextAssistController : IDisposable
         RhinoView.SetActive += OnActiveViewChanged;
         DisplayPipeline.CalculateBoundingBox += OnCalculateBoundingBox;
         _timer.Start();
+        
+        RefreshMouseTrigger();
+    }
+
+    public void RefreshMouseTrigger()
+    {
+        if (_settings.ShortcutButton != MouseTriggerButton.None && _mouseCallback == null)
+        {
+            _mouseCallback = new ShortcutMouseCallback(this, _settings);
+            _mouseCallback.Enabled = true;
+        }
+        else if (_settings.ShortcutButton == MouseTriggerButton.None && _mouseCallback != null)
+        {
+            _mouseCallback.Enabled = false;
+            _mouseCallback = null;
+        }
+        else if (_mouseCallback != null)
+        {
+            _mouseCallback.Settings = _settings;
+        }
     }
 
     public void ShowNow()
     {
         var doc = RhinoDoc.ActiveDoc;
-        if (doc == null)
+        if (doc == null) return;
+        
+        if (_popup != null)
+        {
+            _popup.RepositionAndClamp();
             return;
+        }
 
-        ClosePopupAndConduit();
         OpenForCurrentSelection(doc);
     }
 
@@ -51,6 +77,7 @@ internal sealed class ContextAssistController : IDisposable
         _conduit.ShowTetherLine = _settings.ShowTetherLine;
         _conduit.TetherOpacity = _settings.TetherLineOpacity;
         _conduit.TetherThickness = (float)_settings.TetherLineThickness;
+        RefreshMouseTrigger();
 
         if (_popup is { IsVisible: true })
         {
@@ -61,19 +88,28 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnSelectionChanged(object? sender, RhinoObjectSelectionEventArgs e)
     {
+        if (_popup != null && _popup.IsPinned)
+        {
+            _due = DateTime.UtcNow.AddMilliseconds(_settings.SelectionDelayMs);
+            return;
+        }
+
         ClosePopupAndConduit();
         _due = DateTime.UtcNow.AddMilliseconds(_settings.SelectionDelayMs);
     }
 
-    private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e) => Hide();
+    private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e)
+    {
+        if (_popup != null && _popup.IsPinned)
+            return;
+        HideRequest(false);
+    }
 
-    private void OnDocumentEventHide(object? sender, DocumentEventArgs e) => Hide();
+    private void OnDocumentEventHide(object? sender, DocumentEventArgs e) => HideRequest(true);
 
     private void OnActiveViewChanged(object? sender, ViewEventArgs e)
     {
-        if (e.View == null)
-            return;
-
+        if (e.View == null) return;
         var newId = e.View.ActiveViewportID;
         if (newId != _lastViewportId && _popup is { IsVisible: true })
         {
@@ -87,9 +123,7 @@ internal sealed class ContextAssistController : IDisposable
     private void OnCalculateBoundingBox(object? sender, CalculateBoundingBoxEventArgs e)
     {
         if (_popup is { IsVisible: true } && _settings.FollowCameraMovement)
-        {
             _popup.OnViewportCameraChanged();
-        }
     }
 
     private void Tick()
@@ -109,11 +143,13 @@ internal sealed class ContextAssistController : IDisposable
     {
         var context = SelectionAnalyzer.Analyze(doc);
         if (context.Kind == SelectionKind.None)
+        {
+            if (_popup != null && !_popup.IsPinned) ClosePopupAndConduit();
             return;
+        }
 
         var actions = ActionService.Get(context, _settings);
-        if (actions.Count == 0)
-            return;
+        if (actions.Count == 0) return;
 
         var activeView = doc.Views.ActiveView;
         _lastViewportId = activeView?.ActiveViewportID ?? Guid.Empty;
@@ -129,10 +165,22 @@ internal sealed class ContextAssistController : IDisposable
             _conduit.Enabled = true;
             activeView?.Redraw();
         }
+        else
+        {
+            _conduit.Enabled = false;
+        }
 
-        _popup = new ContextAssistPopup(Execute, Hide, _settings, _conduit);
-        _popup.UpdateActions(context, actions);
-        _popup.ShowAt(context, _settings.PositionMode);
+        if (_popup == null)
+        {
+            _popup = new ContextAssistPopup(Execute, HideRequest, _settings, _conduit);
+            _popup.UpdateActions(context, actions);
+            _popup.ShowAt(context, _settings.PositionMode);
+        }
+        else
+        {
+            _popup.UpdateActions(context, actions);
+            _popup.RepositionAndClamp();
+        }
     }
 
     private void Execute(ContextAction action)
@@ -141,12 +189,16 @@ internal sealed class ContextAssistController : IDisposable
             ContextAssistPlugIn.Instance.LastAction = action;
 
         _settings.RecordUsage(action.Id);
-        Hide();
+        
+        if (_popup == null || !_popup.IsPinned)
+            HideRequest(true);
+
         RhinoApp.RunScript(action.Macro, false);
     }
 
-    public void Hide()
+    public void HideRequest(bool force)
     {
+        if (!force && _popup != null && _popup.IsPinned) return;
         _due = DateTime.MaxValue;
         ClosePopupAndConduit();
     }
@@ -161,15 +213,7 @@ internal sealed class ContextAssistController : IDisposable
             RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();
         }
 
-        try
-        {
-            _popup?.Close();
-        }
-        catch
-        {
-            // Ignoriere Fehler
-        }
-
+        try { _popup?.Close(); } catch { }
         _popup = null;
     }
 
@@ -183,6 +227,41 @@ internal sealed class ContextAssistController : IDisposable
         RhinoDoc.CloseDocument -= OnDocumentEventHide;
         RhinoView.SetActive -= OnActiveViewChanged;
         DisplayPipeline.CalculateBoundingBox -= OnCalculateBoundingBox;
+        if (_mouseCallback != null)
+        {
+            _mouseCallback.Enabled = false;
+            _mouseCallback = null;
+        }
         ClosePopupAndConduit();
+    }
+
+    private class ShortcutMouseCallback : MouseCallback
+    {
+        private readonly ContextAssistController _ctrl;
+        public ContextAssistSettings Settings { get; set; }
+        
+        public ShortcutMouseCallback(ContextAssistController ctrl, ContextAssistSettings settings)
+        {
+            _ctrl = ctrl;
+            Settings = settings;
+        }
+        
+        protected override void OnMouseDown(MouseCallbackEventArgs e)
+        {
+            bool trigger = false;
+            if (Settings.ShortcutButton == MouseTriggerButton.Middle && e.Button == System.Windows.Forms.MouseButtons.Middle) trigger = true;
+            if (Settings.ShortcutButton == MouseTriggerButton.XButton1 && e.Button == System.Windows.Forms.MouseButtons.XButton1) trigger = true;
+            if (Settings.ShortcutButton == MouseTriggerButton.XButton2 && e.Button == System.Windows.Forms.MouseButtons.XButton2) trigger = true;
+
+            if (trigger && e.View != null)
+            {
+                _ctrl.ShowNow();
+                // Wenn es eine Daumentaste (XButton) ist, blockieren wir das Event, 
+                // damit Rhino nicht versehentlich in Ansichten navigiert
+                if (e.Button != System.Windows.Forms.MouseButtons.Middle)
+                    e.Cancel = true;
+            }
+            base.OnMouseDown(e);
+        }
     }
 }

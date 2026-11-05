@@ -29,7 +29,6 @@ internal sealed class ContextAssistSettings
     public int IdleOpacity { get; set; }
     public int ActiveOpacity { get; set; }
 
-    // Hybrid-Conduit & Dynamische Positionierung
     public bool ShowViewportAnchor { get; set; }
     public bool ShowTetherLine { get; set; }
     public int TetherLineOpacity { get; set; }
@@ -39,6 +38,10 @@ internal sealed class ContextAssistSettings
     public int DynamicOffsetPx { get; set; }
     public bool EnableEdgeSnapping { get; set; }
     public int EdgeSnapDistancePx { get; set; }
+    
+    public bool EnableNumberShortcuts { get; set; }
+    public MouseTriggerButton ShortcutButton { get; set; }
+    public bool HighlightHoveredGeometry { get; set; }
 
     public List<ContextAction> CustomActions { get; } = new();
     public Dictionary<SelectionKind, List<ActionPreference>> Preferences { get; } = new();
@@ -76,19 +79,24 @@ internal sealed class ContextAssistSettings
         DynamicOffsetPx = Math.Clamp(_store.GetInteger("DynamicOffsetPx", 48), 0, 200);
         EnableEdgeSnapping = _store.GetBool("EnableEdgeSnapping", true);
         EdgeSnapDistancePx = Math.Clamp(_store.GetInteger("EdgeSnapDistancePx", 28), 8, 80);
+        
+        EnableNumberShortcuts = _store.GetBool("EnableNumberShortcuts", true);
+        ShortcutButton = _store.GetEnumValue("ShortcutButton", MouseTriggerButton.None);
+        
+        // Fallback for old boolean setting if upgrading
+        if (ShortcutButton == MouseTriggerButton.None && _store.GetBool("EnableMmbTrigger", false))
+            ShortcutButton = MouseTriggerButton.Middle;
+
+        HighlightHoveredGeometry = _store.GetBool("HighlightHoveredGeometry", true);
 
         CustomActions.Clear();
         try
         {
             var customJson = _store.GetString("Custom", "[]");
             var loadedCustom = JsonSerializer.Deserialize<List<ContextAction>>(customJson);
-            if (loadedCustom != null)
-                CustomActions.AddRange(loadedCustom);
+            if (loadedCustom != null) CustomActions.AddRange(loadedCustom);
         }
-        catch
-        {
-            // Ignoriere beschädigtes JSON
-        }
+        catch { }
 
         Usage.Clear();
         try
@@ -97,20 +105,15 @@ internal sealed class ContextAssistSettings
             var loadedUsage = JsonSerializer.Deserialize<Dictionary<string, UsageEntry>>(usageJson);
             if (loadedUsage != null)
             {
-                foreach (var kv in loadedUsage)
-                    Usage[kv.Key] = kv.Value;
+                foreach (var kv in loadedUsage) Usage[kv.Key] = kv.Value;
             }
         }
-        catch
-        {
-            // Ignoriere beschädigtes JSON
-        }
+        catch { }
 
         Preferences.Clear();
         foreach (var kind in ActionCatalog.Kinds)
         {
             var defaults = BuildDefaultPreferencesForKind(kind);
-
             try
             {
                 var prefJson = _store.GetString("Preferences." + kind, string.Empty);
@@ -124,40 +127,25 @@ internal sealed class ContextAssistSettings
                     }
                 }
             }
-            catch
-            {
-                // Fallback auf Standardwerte
-            }
-
+            catch { }
             Preferences[kind] = defaults;
         }
     }
 
     private static List<ActionPreference> BuildDefaultPreferencesForKind(SelectionKind kind)
     {
-        var defaults = ActionCatalog.Defaults(kind)
-            .Select(x => new ActionPreference(x.Id, true, false))
-            .ToList();
-
+        var defaults = ActionCatalog.Defaults(kind).Select(x => new ActionPreference(x.Id, true, false)).ToList();
         if (kind is SelectionKind.SolidBrep or SelectionKind.Brep or SelectionKind.Mesh or SelectionKind.Multiple)
         {
-            if (defaults.All(x => x.Id != "boundingboxcurves"))
-                defaults.Add(new ActionPreference("boundingboxcurves", true, false));
+            if (defaults.All(x => x.Id != "boundingboxcurves")) defaults.Add(new ActionPreference("boundingboxcurves", true, false));
         }
-
         return defaults;
     }
 
-    private static List<ActionPreference> MergePreferencesWithDefaults(
-        List<ActionPreference> savedPrefs,
-        List<ActionPreference> defaults)
+    private static List<ActionPreference> MergePreferencesWithDefaults(List<ActionPreference> savedPrefs, List<ActionPreference> defaults)
     {
         var merged = new List<ActionPreference>(savedPrefs);
-        foreach (var def in defaults)
-        {
-            if (merged.All(p => p.Id != def.Id))
-                merged.Add(def);
-        }
+        foreach (var def in defaults) if (merged.All(p => p.Id != def.Id)) merged.Add(def);
         return merged;
     }
 
@@ -187,12 +175,15 @@ internal sealed class ContextAssistSettings
         _store.SetInteger("DynamicOffsetPx", DynamicOffsetPx);
         _store.SetBool("EnableEdgeSnapping", EnableEdgeSnapping);
         _store.SetInteger("EdgeSnapDistancePx", EdgeSnapDistancePx);
+        
+        _store.SetBool("EnableNumberShortcuts", EnableNumberShortcuts);
+        _store.SetEnumValue("ShortcutButton", ShortcutButton);
+        _store.SetBool("HighlightHoveredGeometry", HighlightHoveredGeometry);
 
         _store.SetString("Custom", JsonSerializer.Serialize(CustomActions));
         _store.SetString("Usage", JsonSerializer.Serialize(Usage));
 
-        foreach (var p in Preferences)
-            _store.SetString("Preferences." + p.Key, JsonSerializer.Serialize(p.Value));
+        foreach (var p in Preferences) _store.SetString("Preferences." + p.Key, JsonSerializer.Serialize(p.Value));
 
         ContextAssistPlugIn.Instance?.SaveSettings();
     }
@@ -201,7 +192,7 @@ internal sealed class ContextAssistSettings
     {
         var prefDict = Preferences.ToDictionary(k => k.Key.ToString(), v => v.Value);
         var dto = new SettingsExportDto(
-            Version: "2.2-StableHybrid",
+            Version: "2.4-UX-Boost",
             ExportedUtc: DateTime.UtcNow,
             Enabled: Enabled,
             AutomaticPrioritization: AutomaticPrioritization,
@@ -225,31 +216,23 @@ internal sealed class ContextAssistSettings
             DynamicOffsetPx: DynamicOffsetPx,
             EnableEdgeSnapping: EnableEdgeSnapping,
             EdgeSnapDistancePx: EdgeSnapDistancePx,
+            EnableNumberShortcuts: EnableNumberShortcuts,
+            ShortcutButton: ShortcutButton,
+            HighlightHoveredGeometry: HighlightHoveredGeometry,
             CustomActions: CustomActions.ToList(),
             Preferences: prefDict,
             Usage: new Dictionary<string, UsageEntry>(Usage));
 
-        string json = JsonSerializer.Serialize(dto, JsonOptions);
-        File.WriteAllText(filePath, json);
+        File.WriteAllText(filePath, JsonSerializer.Serialize(dto, JsonOptions));
     }
 
     public bool ImportFromFile(string filePath, out string message)
     {
         try
         {
-            if (!File.Exists(filePath))
-            {
-                message = "Datei wurde nicht gefunden.";
-                return false;
-            }
-
-            string json = File.ReadAllText(filePath);
-            var dto = JsonSerializer.Deserialize<SettingsExportDto>(json, JsonOptions);
-            if (dto == null)
-            {
-                message = "Ungültiges Einstellungsformat.";
-                return false;
-            }
+            if (!File.Exists(filePath)) { message = "Datei wurde nicht gefunden."; return false; }
+            var dto = JsonSerializer.Deserialize<SettingsExportDto>(File.ReadAllText(filePath), JsonOptions);
+            if (dto == null) { message = "Ungültiges Einstellungsformat."; return false; }
 
             Enabled = dto.Enabled;
             AutomaticPrioritization = dto.AutomaticPrioritization;
@@ -276,57 +259,46 @@ internal sealed class ContextAssistSettings
             EnableEdgeSnapping = dto.EnableEdgeSnapping;
             EdgeSnapDistancePx = Math.Clamp(dto.EdgeSnapDistancePx > 0 ? dto.EdgeSnapDistancePx : 28, 8, 80);
 
-            CustomActions.Clear();
-            if (dto.CustomActions != null)
-                CustomActions.AddRange(dto.CustomActions);
+            EnableNumberShortcuts = dto.EnableNumberShortcuts;
+            ShortcutButton = dto.ShortcutButton;
+            HighlightHoveredGeometry = dto.HighlightHoveredGeometry;
 
-            Usage.Clear();
-            if (dto.Usage != null)
-            {
-                foreach (var kv in dto.Usage)
-                    Usage[kv.Key] = kv.Value;
-            }
+            CustomActions.Clear(); if (dto.CustomActions != null) CustomActions.AddRange(dto.CustomActions);
+            Usage.Clear(); if (dto.Usage != null) { foreach (var kv in dto.Usage) Usage[kv.Key] = kv.Value; }
 
             foreach (var kind in ActionCatalog.Kinds)
             {
                 var defaults = BuildDefaultPreferencesForKind(kind);
-                if (dto.Preferences != null &&
-                    dto.Preferences.TryGetValue(kind.ToString(), out var importedPrefs) &&
-                    importedPrefs is { Count: > 0 })
-                {
+                if (dto.Preferences != null && dto.Preferences.TryGetValue(kind.ToString(), out var importedPrefs) && importedPrefs is { Count: > 0 })
                     Preferences[kind] = MergePreferencesWithDefaults(importedPrefs, defaults);
-                }
                 else
-                {
                     Preferences[kind] = defaults;
-                }
             }
-
             Save();
             message = "Einstellungen erfolgreich importiert und gespeichert.";
             return true;
         }
-        catch (Exception ex)
-        {
-            message = $"Fehler beim Importieren: {ex.Message}";
-            return false;
-        }
+        catch (Exception ex) { message = $"Fehler beim Importieren: {ex.Message}"; return false; }
     }
 
     internal IReadOnlyList<ContextAction> Order(SelectionKind k, List<ContextAction> a)
     {
         var prefKind = k == SelectionKind.MultipleEnvelopeObjects ? SelectionKind.Multiple : k;
-        if (!Preferences.TryGetValue(prefKind, out var p))
-            return a;
+        if (!Preferences.TryGetValue(prefKind, out var p)) return a;
 
-        var map = p
-            .GroupBy(x => x.Id)
-            .Select((g, i) => new { g.First().Id, g.First().Enabled, g.First().Favorite, I = i })
-            .ToDictionary(x => x.Id);
+        var map = p.GroupBy(x => x.Id).Select((g, i) => new { g.First().Id, g.First().Enabled, g.First().Favorite, I = i }).ToDictionary(x => x.Id);
+            
+        string lastUsedId = "";
+        if (AutomaticPrioritization && Usage.Count > 0)
+        {
+            var validIds = a.Select(x => x.Id).ToHashSet();
+            var latest = Usage.Values.Where(u => validIds.Contains(u.ActionId)).OrderByDescending(u => u.LastUsedUtc).FirstOrDefault();
+            if (latest != null) lastUsedId = latest.ActionId;
+        }
 
-        return a
-            .Where(x => !map.ContainsKey(x.Id) || map[x.Id].Enabled)
+        return a.Where(x => !map.ContainsKey(x.Id) || map[x.Id].Enabled)
             .OrderByDescending(x => map.TryGetValue(x.Id, out var m) && m.Favorite)
+            .ThenByDescending(x => AutomaticPrioritization && x.Id == lastUsedId)
             .ThenByDescending(x => AutomaticPrioritization && Usage.TryGetValue(x.Id, out var u) ? u.Count : 0)
             .ThenBy(x => map.TryGetValue(x.Id, out var m) ? m.I : int.MaxValue)
             .ToList();
@@ -341,15 +313,9 @@ internal sealed class ContextAssistSettings
     public void ToggleFavorite(SelectionKind k, string id)
     {
         var prefKind = k == SelectionKind.MultipleEnvelopeObjects ? SelectionKind.Multiple : k;
-        if (!Preferences.TryGetValue(prefKind, out var p))
-            return;
-
+        if (!Preferences.TryGetValue(prefKind, out var p)) return;
         var i = p.FindIndex(x => x.Id == id);
-        if (i >= 0)
-            p[i] = p[i] with { Favorite = !p[i].Favorite };
-        else
-            p.Add(new ActionPreference(id, true, true));
-
+        if (i >= 0) p[i] = p[i] with { Favorite = !p[i].Favorite }; else p.Add(new ActionPreference(id, true, true));
         Save();
     }
 
@@ -358,9 +324,7 @@ internal sealed class ContextAssistSettings
     public void RecordUsage(string id)
     {
         var n = DateTime.UtcNow;
-        Usage[id] = Usage.TryGetValue(id, out var u)
-            ? u with { Count = u.Count + 1, LastUsedUtc = n }
-            : new(id, 1, n);
+        Usage[id] = Usage.TryGetValue(id, out var u) ? u with { Count = u.Count + 1, LastUsedUtc = n } : new(id, 1, n);
         Save();
     }
 }
