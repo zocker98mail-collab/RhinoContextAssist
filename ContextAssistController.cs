@@ -169,7 +169,6 @@ internal sealed class ContextAssistController : IDisposable
         
         if (isFixedMode && _popup == null)
         {
-            // Force open if fixed mode
             OpenForCurrentSelection(doc);
             return;
         }
@@ -184,7 +183,6 @@ internal sealed class ContextAssistController : IDisposable
     private void OpenForCurrentSelection(RhinoDoc doc)
     {
         var context = SelectionAnalyzer.Analyze(doc);
-        
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         
         if (context.Kind == SelectionKind.None)
@@ -242,11 +240,8 @@ internal sealed class ContextAssistController : IDisposable
 
         _settings.RecordUsage(action.Id);
         
-        if (_popup == null || (!_popup.IsPinned))
-        {
-            // Only hide if not pinned. If pinned, it stays!
+        if (_popup == null || (!_popup.IsPinned && action.Id != "selprev"))
             HideRequest(true);
-        }
 
         RhinoApp.RunScript(action.Macro, false);
     }

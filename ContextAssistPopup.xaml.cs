@@ -332,7 +332,6 @@ public partial class ContextAssistPopup : Window
         {
             PinButton.Visibility = Visibility.Visible;
         }
-
         bool initialExpanded = _settings.UxMode == PopupUxMode.Direct || isFixedMode;
         _expanded = initialExpanded;
         Pill.Visibility = initialExpanded ? Visibility.Collapsed : Visibility.Visible;
