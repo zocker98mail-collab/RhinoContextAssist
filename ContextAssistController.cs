@@ -164,12 +164,42 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnKeyboardEvent(int key)
     {
-        if (_popup is { IsVisible: true } && !_popup.IsSearchFocused)
+        if (_popup is not { IsVisible: true } || _popup.IsSearchFocused)
+            return;
+
+        // Wenn gerade ein Rhino-Befehl aktiv ist (z.B. _Inset fragt nach Abstand), niemals Shortcuts ausführen!
+        if (Rhino.Commands.Command.InCommand() || Rhino.Commands.Command.InScriptRunnerCommand())
+            return;
+
+        // Nur reagieren, wenn keine laufende Befehlseingabe in der Rhino-Kommandozeile steht (bzw. gerade erst die eine Ziffer getippt wurde)
+        string currentPrompt = RhinoApp.CommandPrompt ?? string.Empty;
+
+        if (_settings.EnableNumberShortcuts && currentPrompt.Length <= 1)
         {
-            if ((key >= 65 && key <= 90) || (key >= 48 && key <= 57))
+            int shortcutIdx = -1;
+            if (key >= 49 && key <= 57) // Tasten 1-9 (VK_1 bis VK_9)
+                shortcutIdx = key - 49;
+            else if (key >= 97 && key <= 105) // Numpad 1-9 (VK_NUMPAD1 bis VK_NUMPAD9)
+                shortcutIdx = key - 97;
+
+            if (shortcutIdx >= 0)
             {
-                _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(false)));
+                _popup.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (_popup != null && !Rhino.Commands.Command.InCommand())
+                    {
+                        // Lösche die in der Rhino-Kommandozeile getippte Ziffer, bevor das Makro startet
+                        RhinoApp.CommandPrompt = string.Empty;
+                        _popup.TryExecuteShortcutIndex(shortcutIdx);
+                    }
+                }));
+                return;
             }
+        }
+
+        if ((key >= 65 && key <= 90) || (key >= 48 && key <= 57))
+        {
+            _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(false)));
         }
     }
 
@@ -258,6 +288,7 @@ internal sealed class ContextAssistController : IDisposable
         if (_popup == null || (!_popup.IsPinned && !isFixedMode && action.Id != "selprev"))
             HideRequest(false);
 
+        ContextAssistPopup.ReturnFocusToRhino();
         RhinoApp.RunScript(action.Macro, false);
     }
 

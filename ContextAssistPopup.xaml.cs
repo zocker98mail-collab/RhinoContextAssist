@@ -160,24 +160,22 @@ public partial class ContextAssistPopup : Window
         }
         else if (_settings.EnableNumberShortcuts && !SearchBox.IsFocused && (LayerPopup == null || !LayerSearchBox.IsFocused))
         {
-            // Zahlen 1-9 direkt in Aktionen mappen
+            if (Rhino.Commands.Command.InCommand())
+            {
+                ReturnFocusToRhino();
+                return;
+            }
+
+            // Zahlen 1-9 direkt in Aktionen mappen (nur wenn kein Rhino-Befehl aktiv ist!)
             if (e.Key >= Key.D1 && e.Key <= Key.D9)
             {
-                int idx = e.Key - Key.D1;
-                if (idx < _primaryActions.Count)
-                {
-                    _execute(_primaryActions[idx]);
+                if (TryExecuteShortcutIndex(e.Key - Key.D1))
                     e.Handled = true;
-                }
             }
             else if (e.Key >= Key.NumPad1 && e.Key <= Key.NumPad9)
             {
-                int idx = e.Key - Key.NumPad1;
-                if (idx < _primaryActions.Count)
-                {
-                    _execute(_primaryActions[idx]);
+                if (TryExecuteShortcutIndex(e.Key - Key.NumPad1))
                     e.Handled = true;
-                }
             }
         }
         
@@ -267,7 +265,11 @@ public partial class ContextAssistPopup : Window
             ToolTip = BuildLearningTooltip(action, englishCommand)
         };
 
-        button.Click += (_, _) => _execute(action);
+        button.Click += (_, _) =>
+        {
+            ReturnFocusToRhino();
+            _execute(action);
+        };
         button.MouseRightButtonUp += (_, mouseEvent) =>
         {
             _settings.ToggleFavorite(_context.Kind, action.Id);
@@ -902,6 +904,31 @@ public partial class ContextAssistPopup : Window
         }
     }
 
+
+    internal bool TryExecuteShortcutIndex(int idx)
+    {
+        if (idx >= 0 && idx < _primaryActions.Count)
+        {
+            ReturnFocusToRhino();
+            _execute(_primaryActions[idx]);
+            return true;
+        }
+        return false;
+    }
+
+    internal static void ReturnFocusToRhino()
+    {
+        try
+        {
+            IntPtr mainHwnd = RhinoApp.MainWindowHandle();
+            if (mainHwnd != IntPtr.Zero)
+                SetForegroundWindow(mainHwnd);
+        }
+        catch { }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     private static extern IntPtr SetWindowLongPtr(IntPtr windowHandle, int index, IntPtr value);
