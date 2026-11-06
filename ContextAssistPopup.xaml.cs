@@ -161,6 +161,15 @@ public partial class ContextAssistPopup : Window
                 }
             }
         }
+        else if (e.Key == Key.Down || e.Key == Key.Up)
+        {
+            if ((More.IsOpen && !SearchBox.IsFocused) || (LayerPopup != null && LayerPopup.IsOpen && !LayerSearchBox.IsFocused))
+            {
+                var focused = Keyboard.FocusedElement as UIElement;
+                focused?.MoveFocus(new TraversalRequest(e.Key == Key.Down ? FocusNavigationDirection.Next : FocusNavigationDirection.Previous));
+                e.Handled = true;
+            }
+        }
     }
 
     private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -168,7 +177,7 @@ public partial class ContextAssistPopup : Window
         if (e.Key == Key.Enter)
         {
             // Führe oberstes Suchergebnis aus
-            if (SearchResults.Children.Count > 0)
+            if (SearchResults.Items.Count > 0)
             {
                 foreach (var child in SearchResults.Children)
                 {
@@ -261,18 +270,31 @@ public partial class ContextAssistPopup : Window
 
     private void RenderResults(IEnumerable<ContextAction> actions)
     {
-        SearchResults.Children.Clear();
+        SearchResults.Items.Clear();
         foreach (IGrouping<string, ContextAction> category in actions.GroupBy(a => a.Category))
         {
-            SearchResults.Children.Add(new TextBlock { Text = category.Key, Foreground = _themeCategoryBrush, Margin = new Thickness(6, 8, 2, 2) });
-            foreach (ContextAction action in category) SearchResults.Children.Add(CreateActionButton(action, true, 0));
+            SearchResults.Items.Add(new TextBlock { Text = category.Key, Foreground = _themeCategoryBrush, Margin = new Thickness(6, 8, 2, 2) });
+            foreach (ContextAction action in category) SearchResults.Items.Add(CreateActionButton(action, true, 0));
         }
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs? e)
     {
         string query = SearchBox.Text.Trim();
-        IEnumerable<ContextAction> results = string.IsNullOrEmpty(query) ? _allActions.Skip(_primaryActions.Count) : _allActions.Where(action => $"{action.Label} {action.Hint} {action.Category} {GetEnglishCommand(action.Macro)} {action.Macro}".Contains(query, StringComparison.OrdinalIgnoreCase));
+        IEnumerable<ContextAction> results;
+        if (string.IsNullOrEmpty(query))
+        {
+            results = _allActions.Skip(_primaryActions.Count);
+        }
+        else
+        {
+            var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            results = _allActions.Where(action =>
+            {
+                string searchable = $"{action.Label} {action.Hint} {action.Category} {GetEnglishCommand(action.Macro)} {action.Macro}";
+                return parts.All(p => searchable.Contains(p, StringComparison.OrdinalIgnoreCase));
+            });
+        }
         RenderResults(results);
     }
 
@@ -335,12 +357,12 @@ public partial class ContextAssistPopup : Window
         if (spaceBelow < 260 && spaceAbove > spaceBelow)
         {
             More.Placement = PlacementMode.Top;
-            MoreScrollViewer.MaxHeight = Math.Clamp(spaceAbove - 65, 140, 420);
+            SearchResults.MaxHeight = Math.Clamp(spaceAbove - 65, 140, 420);
         }
         else
         {
             More.Placement = PlacementMode.Bottom;
-            MoreScrollViewer.MaxHeight = Math.Clamp(Math.Max(spaceBelow, SystemParameters.WorkArea.Bottom - (Top + popupHeight) - 24) - 65, 140, 420);
+            SearchResults.MaxHeight = Math.Clamp(Math.Max(spaceBelow, SystemParameters.WorkArea.Bottom - (Top + popupHeight) - 24) - 65, 140, 420);
         }
 
         WpfPoint clamped = ClampToBounds(new WpfPoint(Left, Top), bounds, popupWidth, popupHeight);
@@ -702,7 +724,7 @@ public partial class ContextAssistPopup : Window
         }
         else if (e.Key == Key.Enter)
         {
-            if (LayerResults.Children.Count > 0 && LayerResults.Children[0] is Button btn)
+            if (LayerResults.Items.Count > 0 && LayerResults.Children[0] is Button btn)
             {
                 // Execute the first layer button
                 if (System.Windows.Input.Mouse.PrimaryDevice != null)
@@ -720,12 +742,13 @@ public partial class ContextAssistPopup : Window
         var doc = RhinoDoc.ActiveDoc;
         if (doc == null) return;
 
-        LayerResults.Children.Clear();
+        LayerResults.Items.Clear();
         var layers = doc.Layers.Where(l => !l.IsDeleted).OrderBy(l => l.FullPath).ToList();
 
         if (!string.IsNullOrWhiteSpace(query))
         {
-            layers = layers.Where(l => l.FullPath.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            layers = layers.Where(l => parts.All(p => l.FullPath.Contains(p, StringComparison.OrdinalIgnoreCase))).ToList();
         }
 
         foreach (var layer in layers)
@@ -764,7 +787,7 @@ public partial class ContextAssistPopup : Window
                 LayerPopup.IsOpen = false;
             };
 
-            LayerResults.Children.Add(btn);
+            LayerResults.Items.Add(btn);
         }
     }
 

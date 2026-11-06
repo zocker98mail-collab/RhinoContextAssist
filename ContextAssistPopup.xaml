@@ -87,9 +87,20 @@
                                      TextChanged="SearchBox_TextChanged"
                                      PreviewKeyDown="SearchBox_PreviewKeyDown" />
 
-                            <ScrollViewer x:Name="MoreScrollViewer" MaxHeight="420" VerticalScrollBarVisibility="Auto">
-                                <StackPanel x:Name="SearchResults" />
-                            </ScrollViewer>
+                            <ItemsControl x:Name="SearchResults" MaxHeight="420" VirtualizingStackPanel.IsVirtualizing="True" ScrollViewer.CanContentScroll="True">
+                                <ItemsControl.Template>
+                                    <ControlTemplate TargetType="ItemsControl">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <ItemsPresenter />
+                                        </ScrollViewer>
+                                    </ControlTemplate>
+                                </ItemsControl.Template>
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
                         </StackPanel>
                     </Border>
                 </Popup>
@@ -102,9 +113,20 @@
                                      TextChanged="LayerSearchBox_TextChanged"
                                      PreviewKeyDown="LayerSearchBox_PreviewKeyDown" />
 
-                            <ScrollViewer x:Name="LayerScrollViewer" MaxHeight="250" VerticalScrollBarVisibility="Auto">
-                                <StackPanel x:Name="LayerResults" />
-                            </ScrollViewer>
+                            <ItemsControl x:Name="LayerResults" MaxHeight="250" VirtualizingStackPanel.IsVirtualizing="True" ScrollViewer.CanContentScroll="True">
+                                <ItemsControl.Template>
+                                    <ControlTemplate TargetType="ItemsControl">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <ItemsPresenter />
+                                        </ScrollViewer>
+                                    </ControlTemplate>
+                                </ItemsControl.Template>
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
                         </StackPanel>
                     </Border>
                 </Popup>
