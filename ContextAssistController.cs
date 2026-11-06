@@ -174,12 +174,19 @@ internal sealed class ContextAssistController : IDisposable
         var context = SelectionAnalyzer.Analyze(doc);
         if (context.Kind == SelectionKind.None)
         {
-            if (_popup != null && !_popup.IsPinned) ClosePopupAndConduit();
-            return;
+            if (_popup == null || !_popup.IsPinned) 
+            {
+                ClosePopupAndConduit();
+                return;
+            }
         }
 
         var actions = ActionService.Get(context, _settings);
-        if (actions.Count == 0) return;
+        if (actions.Count == 0) 
+        {
+            if (_popup == null || !_popup.IsPinned) ClosePopupAndConduit();
+            return;
+        }
 
         var activeView = doc.Views.ActiveView;
         _lastViewportId = activeView?.ActiveViewportID ?? Guid.Empty;

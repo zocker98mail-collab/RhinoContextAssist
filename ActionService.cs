@@ -12,6 +12,13 @@ internal static class ActionService
 
     internal static IReadOnlyList<ContextAction> Get(SelectionContext c, ContextAssistSettings s)
     {
+        if (c.Kind == SelectionKind.None)
+        {
+            return new[]
+            {
+                new ContextAction("selprev", "↺", "Vorherige Auswahl aktivieren", "! _SelPrev", "Wählt die zuletzt markierten Objekte wieder aus.", "Auswahl", false, "None")
+            };
+        }
         var k = c.Kind == SelectionKind.MultipleEnvelopeObjects ? SelectionKind.Multiple : c.Kind;
         var list = ActionCatalog.Defaults(k)
             .Concat(s.CustomActions.Where(x => x.Requirement == c.Kind.ToString() || x.Requirement == k.ToString() || x.Requirement == "Any"))
