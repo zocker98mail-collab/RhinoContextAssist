@@ -136,7 +136,11 @@ public partial class ContextAssistPopup : Window
             }
             else
             {
-                _requestClose(true); // Force close despite pin
+                bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+                if (!isFixedMode)
+                {
+                    _requestClose(true); // Force close despite pin
+                }
                 e.Handled = true;
             }
         }
@@ -681,7 +685,7 @@ public partial class ContextAssistPopup : Window
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         _requestClose(true);
-        RhinoApp.RunScript("_-Options _Page \"Context Assist\" _Enter", false);
+        RhinoApp.RunScript("! _-OptionsPage ContextAssist _Enter", false);
     }
 
     private void InitializeLayerButton()
