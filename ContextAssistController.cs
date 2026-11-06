@@ -14,6 +14,7 @@ internal sealed class ContextAssistController : IDisposable
     private readonly ContextAssistSettings _settings;
     private readonly ContextAssistAnchorConduit _conduit;
     private ContextAssistPopup? _popup;
+    private bool _manuallyClosedFixed;
     private DateTime _due = DateTime.MaxValue;
     private Guid _lastViewportId = Guid.Empty;
     private ShortcutMouseCallback? _mouseCallback;
@@ -63,6 +64,7 @@ internal sealed class ContextAssistController : IDisposable
 
     public void ShowNow()
     {
+        _manuallyClosedFixed = false;
         var doc = RhinoDoc.ActiveDoc;
         if (doc == null) return;
         
@@ -83,8 +85,10 @@ internal sealed class ContextAssistController : IDisposable
         _conduit.TetherThickness = (float)_settings.TetherLineThickness;
         RefreshMouseTrigger();
 
+        _manuallyClosedFixed = false;
         if (_popup is { IsVisible: true })
         {
+            _popup.SyncModeFromSettings();
             _popup.RepositionAndClamp();
             RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();
         }
@@ -92,7 +96,9 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnSelectionChanged(object? sender, RhinoObjectSelectionEventArgs e)
     {
-        if (_popup != null && _popup.IsPinned)
+        _manuallyClosedFixed = false;
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        if (_popup != null && (_popup.IsPinned || isFixedMode))
         {
             _due = DateTime.UtcNow.AddMilliseconds(_settings.SelectionDelayMs);
             return;
@@ -104,7 +110,8 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e)
     {
-        if (_popup != null && _popup.IsPinned)
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        if (_popup != null && (_popup.IsPinned || isFixedMode))
         {
             _due = DateTime.UtcNow.AddMilliseconds(_settings.SelectionDelayMs);
             return;
@@ -112,7 +119,7 @@ internal sealed class ContextAssistController : IDisposable
         HideRequest(false);
     }
 
-    private void OnDocumentEventHide(object? sender, DocumentEventArgs e) => HideRequest(true);
+    private void OnDocumentEventHide(object? sender, DocumentEventArgs e) => HideRequest(false);
 
     private void OnActiveViewChanged(object? sender, ViewEventArgs e)
     {
@@ -139,13 +146,20 @@ internal sealed class ContextAssistController : IDisposable
             return;
             
         if (_popup != null)
-            _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(true)));
+            _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(false)));
     }
 
     private void OnEscapeKeyPressed(object? sender, EventArgs e)
     {
         if (_popup != null)
-            _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(true)));
+        {
+            _popup.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_popup != null && _popup.CloseSubMenusIfOpen())
+                    return;
+                HideRequest(false);
+            }));
+        }
     }
 
     private void OnKeyboardEvent(int key)
@@ -154,7 +168,7 @@ internal sealed class ContextAssistController : IDisposable
         {
             if ((key >= 65 && key <= 90) || (key >= 48 && key <= 57))
             {
-                _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(true)));
+                _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(false)));
             }
         }
     }
@@ -167,7 +181,7 @@ internal sealed class ContextAssistController : IDisposable
 
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         
-        if (isFixedMode && _popup == null)
+        if (isFixedMode && _popup == null && !_manuallyClosedFixed && !Rhino.Commands.Command.InCommand())
         {
             OpenForCurrentSelection(doc);
             return;
@@ -240,8 +254,9 @@ internal sealed class ContextAssistController : IDisposable
 
         _settings.RecordUsage(action.Id);
         
-        if (_popup == null || (!_popup.IsPinned && action.Id != "selprev"))
-            HideRequest(true);
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        if (_popup == null || (!_popup.IsPinned && !isFixedMode && action.Id != "selprev"))
+            HideRequest(false);
 
         RhinoApp.RunScript(action.Macro, false);
     }
@@ -250,6 +265,8 @@ internal sealed class ContextAssistController : IDisposable
     {
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         if (!force && _popup != null && (_popup.IsPinned || isFixedMode)) return;
+        if (_popup?.ClosedByUserButton == true)
+            _manuallyClosedFixed = true;
         _due = DateTime.MaxValue;
         ClosePopupAndConduit();
     }

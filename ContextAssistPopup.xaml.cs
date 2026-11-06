@@ -137,9 +137,18 @@ public partial class ContextAssistPopup : Window
             else
             {
                 bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
-                if (!isFixedMode)
+                if (!isFixedMode && !IsPinned)
                 {
-                    _requestClose(true); // Force close despite pin
+                    _requestClose(false);
+                }
+                else
+                {
+                    var doc = RhinoDoc.ActiveDoc;
+                    if (doc != null)
+                    {
+                        doc.Objects.UnselectAll();
+                        doc.Views.Redraw();
+                    }
                 }
                 e.Handled = true;
             }
@@ -547,15 +556,17 @@ public partial class ContextAssistPopup : Window
             _hoverStart = null;
             FadeTo(_settings.IdleOpacity / 100d);
 
-            if (_expanded && _settings.UxMode == PopupUxMode.Compact)
+            bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+
+            if (_expanded && _settings.UxMode == PopupUxMode.Compact && !IsPinned && !isFixedMode)
             {
                 _leaveStart ??= now;
                 int delay = More.IsOpen ? _settings.MoreCollapseDelayMs : _settings.CollapseDelayMs;
                 if ((now - _leaveStart.Value).TotalMilliseconds >= delay) SetExpanded(false);
             }
 
-            // Ignoriere Auto-Hide, wenn Pin gesetzt ist!
-            if (PinButton.IsChecked != true && _settings.AutoHideMs > 0 && (now - _lastInteraction).TotalMilliseconds >= _settings.AutoHideMs)
+            // Ignoriere Auto-Hide, wenn Pin gesetzt oder fester Modus aktiv ist!
+            if (!IsPinned && !isFixedMode && _settings.AutoHideMs > 0 && (now - _lastInteraction).TotalMilliseconds >= _settings.AutoHideMs)
                 _requestClose(false);
         }
     }
@@ -617,7 +628,17 @@ public partial class ContextAssistPopup : Window
 
     private void UpdateCameraTrackingAndOcclusion()
     {
-        if (!_context.Anchor.IsValid) return;
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        if (IsPinned || isFixedMode || !_context.Anchor.IsValid)
+        {
+            if (_hiddenDueToOffscreen)
+            {
+                _hiddenDueToOffscreen = false;
+                IsHitTestVisible = true;
+                FadeTo((IsMouseOver ? _settings.ActiveOpacity : _settings.IdleOpacity) / 100d);
+            }
+            return;
+        }
         var view = RhinoDoc.ActiveDoc?.Views.ActiveView;
         if (view == null) return;
 
@@ -662,8 +683,47 @@ public partial class ContextAssistPopup : Window
 
     private void Pill_Click(object sender, RoutedEventArgs e) => SetExpanded(true);
     
-    // Close button (always forces close, overriding Pin)
-    private void Close_Click(object sender, RoutedEventArgs e) => _requestClose(true);
+    public bool ClosedByUserButton { get; private set; }
+
+    internal bool CloseSubMenusIfOpen()
+    {
+        bool closedAny = false;
+        if (More.IsOpen)
+        {
+            More.IsOpen = false;
+            closedAny = true;
+        }
+        if (LayerPopup != null && LayerPopup.IsOpen)
+        {
+            LayerPopup.IsOpen = false;
+            closedAny = true;
+        }
+        if (closedAny) RepositionAndClamp();
+        return closedAny;
+    }
+
+    internal void SyncModeFromSettings()
+    {
+        _activeMode = _settings.PositionMode;
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        if (isFixedMode)
+        {
+            PinButton.IsChecked = true;
+            PinButton.Visibility = Visibility.Collapsed;
+            if (!_expanded) SetExpanded(true);
+        }
+        else
+        {
+            PinButton.Visibility = Visibility.Visible;
+        }
+    }
+
+    // Close button (always forces close, overriding Pin and Fixed mode)
+    private void Close_Click(object sender, RoutedEventArgs e)
+    {
+        ClosedByUserButton = true;
+        _requestClose(true);
+    }
 
     private void FadeTo(double opacity) => BeginAnimation(OpacityProperty, new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(120)));
 
