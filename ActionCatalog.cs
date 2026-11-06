@@ -135,7 +135,7 @@ internal static class ActionCatalog
         SelectionKind.Block => new[]
         {
             A("unique", "◆", "EinzigartigenBlockErzeugen", "_CreateUniqueBlock", "Eigene Blockdefinition aus der Instanz erzeugen.", "Block"),
-            A("edit", "✎", "BlockBearbeiten", "_BlockEdit", "Blockdefinition bearbeiten.", "Block"),
+            A("edit", "✎", "BlockBearbeiten", "_BlockEditNew", "Blockdefinition bearbeiten (BlockEditNew).", "Block"),
             A("replace", "⇄", "BlockErsetzen", "_ReplaceBlock", "Blockinstanz durch eine andere Definition ersetzen.", "Block", false, "OtherBlocks"),
             A("same", "▦", "BlockinstanzenAuswählen", "_SelBlockInstanceNamed", "Instanzen derselben Blockdefinition auswählen.", "Block"),
             A("manager", "☷", "BlockManager", "_BlockManager", "Blockmanager öffnen.", "Block"),

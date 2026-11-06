@@ -93,6 +93,21 @@
                         </StackPanel>
                     </Border>
                 </Popup>
+                <Popup x:Name="LayerPopup" Placement="Bottom" AllowsTransparency="True" StaysOpen="False" Opened="LayerPopup_Opened" Closed="LayerPopup_Closed">
+                    <Border x:Name="LayerPopupBorder" Background="#FC282828" CornerRadius="10" Padding="6" Effect="{StaticResource S}">
+                        <StackPanel Width="280">
+                            <TextBox x:Name="LayerSearchBox"
+                                     Margin="3" Padding="6"
+                                     ToolTip="Nach Layer-Namen suchen"
+                                     TextChanged="LayerSearchBox_TextChanged"
+                                     PreviewKeyDown="LayerSearchBox_PreviewKeyDown" />
+
+                            <ScrollViewer x:Name="LayerScrollViewer" MaxHeight="250" VerticalScrollBarVisibility="Auto">
+                                <StackPanel x:Name="LayerResults" />
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                </Popup>
             </StackPanel>
         </Grid>
     </Border>

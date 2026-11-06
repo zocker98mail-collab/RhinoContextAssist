@@ -469,7 +469,7 @@ public partial class ContextAssistPopup : Window
         if (_hiddenDueToOffscreen) return;
 
         DateTime now = DateTime.UtcNow;
-        bool inside = IsMouseOver || (More.IsOpen && More.IsMouseOver);
+        bool inside = IsMouseOver || (More.IsOpen && More.IsMouseOver) || LayerPopup.IsOpen;
 
         if (inside)
         {
@@ -515,6 +515,10 @@ public partial class ContextAssistPopup : Window
             RootBorder.Background = new SolidColorBrush(WpfColor.FromArgb(239, 40, 40, 40));
             More.PopupAnimation = PopupAnimation.Fade;
             if (More.Child is Border b) b.Background = new SolidColorBrush(WpfColor.FromArgb(252, 40, 40, 40));
+            LayerPopupBorder.Background = new SolidColorBrush(WpfColor.FromArgb(252, 40, 40, 40));
+            LayerSearchBox.Foreground = WpfBrushes.White;
+            LayerSearchBox.Background = new SolidColorBrush(WpfColor.FromArgb(50, 255, 255, 255));
+            LayerSearchBox.BorderBrush = new SolidColorBrush(WpfColor.FromArgb(30, 255, 255, 255));
             
             _themeTextBrush = WpfBrushes.White;
             _themeHintBrush = new SolidColorBrush(WpfColor.FromRgb(180, 180, 180));
@@ -530,6 +534,10 @@ public partial class ContextAssistPopup : Window
         {
             RootBorder.Background = new SolidColorBrush(WpfColor.FromArgb(245, 245, 245, 245));
             if (More.Child is Border b) b.Background = new SolidColorBrush(WpfColor.FromArgb(252, 245, 245, 245));
+            LayerPopupBorder.Background = new SolidColorBrush(WpfColor.FromArgb(252, 245, 245, 245));
+            LayerSearchBox.Foreground = WpfBrushes.Black;
+            LayerSearchBox.Background = new SolidColorBrush(WpfColor.FromArgb(50, 0, 0, 0));
+            LayerSearchBox.BorderBrush = new SolidColorBrush(WpfColor.FromArgb(30, 0, 0, 0));
             
             _themeTextBrush = new SolidColorBrush(WpfColor.FromRgb(30, 30, 30));
             _themeHintBrush = new SolidColorBrush(WpfColor.FromRgb(100, 100, 100));
@@ -610,7 +618,7 @@ public partial class ContextAssistPopup : Window
     };
 
     public bool IsPinned => PinButton.IsChecked == true;
-    public bool IsSearchFocused => SearchBox.IsFocused;
+    public bool IsSearchFocused => SearchBox.IsFocused || LayerSearchBox.IsFocused;
 
     
     private void Settings_Click(object sender, RoutedEventArgs e)
@@ -663,23 +671,88 @@ public partial class ContextAssistPopup : Window
     
     private void LayerButton_Click(object sender, RoutedEventArgs e)
     {
+        LayerPopup.PlacementTarget = LayerButton;
+        LayerPopup.IsOpen = true;
+    }
+
+    private void LayerPopup_Opened(object sender, EventArgs e)
+    {
+        LayerSearchBox.Text = string.Empty;
+        RenderLayers(string.Empty);
+        LayerSearchBox.Focus();
+    }
+
+    private void LayerPopup_Closed(object sender, EventArgs e)
+    {
+        RepositionAndClamp();
+    }
+
+    private void LayerSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        RenderLayers(LayerSearchBox.Text);
+    }
+    
+    private void LayerSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            LayerPopup.IsOpen = false;
+            RepositionAndClamp();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            if (LayerResults.Children.Count > 0 && LayerResults.Children[0] is Button btn)
+            {
+                // Execute the first layer button
+                if (System.Windows.Input.Mouse.PrimaryDevice != null)
+                {
+                    var args = new MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = Button.ClickEvent };
+                    btn.RaiseEvent(args);
+                }
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void RenderLayers(string query)
+    {
         var doc = RhinoDoc.ActiveDoc;
         if (doc == null) return;
-        
-        var menu = new ContextMenu();
-        menu.Background = RootBorder.Background;
-        menu.Foreground = _themeTextBrush;
-        menu.BorderBrush = SearchBox.BorderBrush;
-        
-        foreach (var layer in doc.Layers.Where(l => !l.IsDeleted).OrderBy(l => l.FullPath))
+
+        LayerResults.Children.Clear();
+        var layers = doc.Layers.Where(l => !l.IsDeleted).OrderBy(l => l.FullPath).ToList();
+
+        if (!string.IsNullOrWhiteSpace(query))
         {
-            var item = new MenuItem { Header = layer.FullPath };
+            layers = layers.Where(l => l.FullPath.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        foreach (var layer in layers)
+        {
             var c = layer.Color;
-            item.Icon = new System.Windows.Shapes.Ellipse { 
-                Width = 12, Height = 12, 
-                Fill = new SolidColorBrush(WpfColor.FromRgb(c.R, c.G, c.B)) 
+            var sp = new StackPanel { Orientation = Orientation.Horizontal };
+            sp.Children.Add(new System.Windows.Shapes.Ellipse {
+                Width = 12, Height = 12,
+                Fill = new SolidColorBrush(WpfColor.FromRgb(c.R, c.G, c.B)),
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            sp.Children.Add(new TextBlock {
+                Text = layer.FullPath,
+                Foreground = _themeTextBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            var btn = new Button
+            {
+                Content = sp,
+                Style = (Style)FindResource("B"),
+                HorizontalContentAlignment = HorizontalAlignment.Left
             };
-            item.Click += (s, args) => {
+            
+            btn.Click += (s, args) =>
+            {
                 var selectedObjects = doc.Objects.GetSelectedObjects(false, false).ToList();
                 foreach (var obj in selectedObjects)
                 {
@@ -688,12 +761,13 @@ public partial class ContextAssistPopup : Window
                 }
                 doc.Views.Redraw();
                 InitializeLayerButton();
+                LayerPopup.IsOpen = false;
             };
-            menu.Items.Add(item);
+
+            LayerResults.Children.Add(btn);
         }
-        menu.PlacementTarget = LayerButton;
-        menu.IsOpen = true;
     }
+
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     private static extern IntPtr SetWindowLongPtr(IntPtr windowHandle, int index, IntPtr value);
