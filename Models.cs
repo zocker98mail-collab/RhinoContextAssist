@@ -16,7 +16,7 @@ internal enum ContextLevel
 
 internal enum PopupPositionMode
 {
-    Mouse, Geometry, GeometryOffset, AutoViewportCorner, TopLeft, TopRight, BottomLeft, BottomRight
+    Mouse, Geometry, GeometryOffset, AutoViewportCorner, TopLeft, TopRight, BottomLeft, BottomRight, FixedTopLeft, FixedTopRight, FixedBottomLeft, FixedBottomRight
 }
 
 internal enum PopupUxMode

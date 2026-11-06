@@ -322,7 +322,18 @@ public partial class ContextAssistPopup : Window
         _hiddenDueToOffscreen = false;
         _lastInteraction = DateTime.UtcNow;
 
-        bool initialExpanded = _settings.UxMode == PopupUxMode.Direct;
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        if (isFixedMode)
+        {
+            PinButton.IsChecked = true;
+            PinButton.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            PinButton.Visibility = Visibility.Visible;
+        }
+
+        bool initialExpanded = _settings.UxMode == PopupUxMode.Direct || isFixedMode;
         _expanded = initialExpanded;
         Pill.Visibility = initialExpanded ? Visibility.Collapsed : Visibility.Visible;
         Expanded.Visibility = initialExpanded ? Visibility.Visible : Visibility.Collapsed;
@@ -436,9 +447,18 @@ public partial class ContextAssistPopup : Window
             { PopupPositionMode.TopLeft, new WpfPoint(safeLeftX, safeTopY) },
             { PopupPositionMode.TopRight, new WpfPoint(safeRightX, safeTopY) },
             { PopupPositionMode.BottomLeft, new WpfPoint(safeLeftX, safeBottomY) },
-            { PopupPositionMode.BottomRight, new WpfPoint(safeRightX, safeBottomY) }
+            { PopupPositionMode.BottomRight, new WpfPoint(safeRightX, safeBottomY) },
+            { PopupPositionMode.FixedTopLeft, new WpfPoint(safeLeftX, safeTopY) },
+            { PopupPositionMode.FixedTopRight, new WpfPoint(safeRightX, safeTopY) },
+            { PopupPositionMode.FixedBottomLeft, new WpfPoint(safeLeftX, safeBottomY) },
+            { PopupPositionMode.FixedBottomRight, new WpfPoint(safeRightX, safeBottomY) }
         };
 
+        if (mode == PopupPositionMode.FixedTopLeft) return corners[PopupPositionMode.FixedTopLeft];
+        if (mode == PopupPositionMode.FixedTopRight) return corners[PopupPositionMode.FixedTopRight];
+        if (mode == PopupPositionMode.FixedBottomLeft) return corners[PopupPositionMode.FixedBottomLeft];
+        if (mode == PopupPositionMode.FixedBottomRight) return corners[PopupPositionMode.FixedBottomRight];
+        
         if (mode != PopupPositionMode.AutoViewportCorner) return corners.TryGetValue(mode, out var fixedCorner) ? fixedCorner : corners[PopupPositionMode.TopRight];
 
         double ScoreCorner(PopupPositionMode cornerMode) => Distance(new WpfPoint(corners[cornerMode].X + popupWidth / 2, corners[cornerMode].Y + popupHeight / 2), projected);

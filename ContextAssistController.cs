@@ -165,6 +165,15 @@ internal sealed class ContextAssistController : IDisposable
         if (!_settings.Enabled || doc == null || Rhino.Commands.Command.InScriptRunnerCommand())
             return;
 
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        
+        if (isFixedMode && _popup == null)
+        {
+            // Force open if fixed mode
+            OpenForCurrentSelection(doc);
+            return;
+        }
+
         if (_due == DateTime.MaxValue || DateTime.UtcNow < _due)
             return;
 
@@ -175,9 +184,12 @@ internal sealed class ContextAssistController : IDisposable
     private void OpenForCurrentSelection(RhinoDoc doc)
     {
         var context = SelectionAnalyzer.Analyze(doc);
+        
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        
         if (context.Kind == SelectionKind.None)
         {
-            if (_popup == null || !_popup.IsPinned) 
+            if (_popup == null || (!_popup.IsPinned && !isFixedMode)) 
             {
                 ClosePopupAndConduit();
                 return;
@@ -187,7 +199,7 @@ internal sealed class ContextAssistController : IDisposable
         var actions = ActionService.Get(context, _settings);
         if (actions.Count == 0) 
         {
-            if (_popup == null || !_popup.IsPinned) ClosePopupAndConduit();
+            if (_popup == null || (!_popup.IsPinned && !isFixedMode)) ClosePopupAndConduit();
             return;
         }
 
@@ -230,15 +242,19 @@ internal sealed class ContextAssistController : IDisposable
 
         _settings.RecordUsage(action.Id);
         
-        if (_popup == null || !_popup.IsPinned)
+        if (_popup == null || (!_popup.IsPinned))
+        {
+            // Only hide if not pinned. If pinned, it stays!
             HideRequest(true);
+        }
 
         RhinoApp.RunScript(action.Macro, false);
     }
 
     public void HideRequest(bool force)
     {
-        if (!force && _popup != null && _popup.IsPinned) return;
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        if (!force && _popup != null && (_popup.IsPinned || isFixedMode)) return;
         _due = DateTime.MaxValue;
         ClosePopupAndConduit();
     }
