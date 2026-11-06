@@ -172,21 +172,18 @@ public partial class ContextAssistPopup : Window
         }
     }
 
-    private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
-            // Führe oberstes Suchergebnis aus
             if (SearchResults.Items.Count > 0)
             {
-                foreach (var child in SearchResults.Children)
+                var firstBtn = SearchResults.Items.OfType<Button>().FirstOrDefault() ?? (SearchResults.Items[0] as Button);
+                if (firstBtn != null && firstBtn.Tag is ContextAction action)
                 {
-                    if (child is Button btn && btn.Tag is ContextAction action)
-                    {
-                        _execute(action);
-                        e.Handled = true;
-                        return;
-                    }
+                    _execute(action);
+                    e.Handled = true;
+                    return;
                 }
             }
         }
@@ -196,77 +193,17 @@ public partial class ContextAssistPopup : Window
             RepositionAndClamp();
             e.Handled = true;
         }
-    }
-
-    private Button CreateActionButton(ContextAction action, bool detailed, int shortcutNumber)
-    {
-        bool favorite = _settings.IsFavorite(_context.Kind, action.Id);
-        string englishCommand = GetEnglishCommand(action.Macro);
-
-        StackPanel content = new StackPanel { Orientation = Orientation.Vertical };
-
-        string shortcutPrefix = shortcutNumber > 0 ? $"[{shortcutNumber}] " : string.Empty;
-        TextBlock commandText = new TextBlock
+        else if (e.Key == Key.Down)
         {
-            Text = $"{shortcutPrefix}{(favorite ? "★ " : string.Empty)}{action.Icon} {action.Label}",
-            Foreground = action.Destructive ? _themeDangerBrush : _themeTextBrush,
-            FontWeight = FontWeights.SemiBold
-        };
-        content.Children.Add(commandText);
-
-        if (detailed)
-        {
-            TextBlock descriptionText = new TextBlock
+            var firstBtn = SearchResults.Items.OfType<Button>().FirstOrDefault() ?? (SearchResults.Items.Count > 0 ? SearchResults.Items[0] as Button : null);
+            if (firstBtn != null)
             {
-                Text = action.Hint,
-                Foreground = _themeHintBrush,
-                FontSize = 10,
-                Margin = new Thickness(22, 2, 4, 0),
-                TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 260
-            };
-            content.Children.Add(descriptionText);
+                firstBtn.Focus();
+                e.Handled = true;
+            }
         }
-
-        Button button = new Button
-        {
-            Content = content,
-            Tag = action, // Tag für das Enter-Key-Ausführen im Suchfeld
-            Style = (Style)FindResource("B"),
-            HorizontalContentAlignment = detailed ? HorizontalAlignment.Left : HorizontalAlignment.Center,
-            MinWidth = detailed ? 285 : 0,
-            ToolTip = BuildLearningTooltip(action, englishCommand)
-        };
-
-        button.Click += (_, _) => _execute(action);
-        button.MouseRightButtonUp += (_, mouseEvent) =>
-        {
-            _settings.ToggleFavorite(_context.Kind, action.Id);
-            mouseEvent.Handled = true;
-            UpdateActions(_context, ActionService.Get(_context, _settings));
-            Dispatcher.BeginInvoke(new Action(RepositionAndClamp), DispatcherPriority.Loaded);
-        };
-        
-        // Hover-Highlight
-        if (_settings.HighlightHoveredGeometry && _conduit != null)
-        {
-            button.MouseEnter += (_, _) => { _conduit.HighlightMode = action.Macro; RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw(); };
-            button.MouseLeave += (_, _) => { _conduit.HighlightMode = null; RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw(); };
-        }
-
-        return button;
     }
 
-    private static string BuildLearningTooltip(ContextAction action, string englishCommand)
-    {
-        return $"{action.Label}\n\n{action.Hint}\n\nEnglischer Befehl / Makro: {englishCommand}\nRechtsklick: Favorit umschalten";
-    }
-
-    private static string GetEnglishCommand(string macro)
-    {
-        if (string.IsNullOrWhiteSpace(macro)) return string.Empty;
-        return macro.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0].TrimStart('_', '-', '!');
-    }
 
     private void RenderResults(IEnumerable<ContextAction> actions)
     {
@@ -714,7 +651,7 @@ public partial class ContextAssistPopup : Window
         RenderLayers(LayerSearchBox.Text);
     }
     
-    private void LayerSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void LayerSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
         {
@@ -724,18 +661,28 @@ public partial class ContextAssistPopup : Window
         }
         else if (e.Key == Key.Enter)
         {
-            if (LayerResults.Items.Count > 0 && LayerResults.Children[0] is Button btn)
+            if (LayerResults.Items.Count > 0)
             {
-                // Execute the first layer button
-                if (System.Windows.Input.Mouse.PrimaryDevice != null)
+                var firstBtn = LayerResults.Items.OfType<Button>().FirstOrDefault() ?? (LayerResults.Items[0] as Button);
+                if (firstBtn != null && System.Windows.Input.Mouse.PrimaryDevice != null)
                 {
                     var args = new MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = Button.ClickEvent };
-                    btn.RaiseEvent(args);
+                    firstBtn.RaiseEvent(args);
+                    e.Handled = true;
                 }
+            }
+        }
+        else if (e.Key == Key.Down)
+        {
+            var firstBtn = LayerResults.Items.OfType<Button>().FirstOrDefault() ?? (LayerResults.Items.Count > 0 ? LayerResults.Items[0] as Button : null);
+            if (firstBtn != null)
+            {
+                firstBtn.Focus();
                 e.Handled = true;
             }
         }
     }
+
 
     private void RenderLayers(string query)
     {
