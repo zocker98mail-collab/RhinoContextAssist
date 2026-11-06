@@ -56,7 +56,7 @@ internal sealed class ContextAssistOptionsControl : Panel
     {
         _settings = settings;
 
-        foreach (var label in new[] { "Neben Mauszeiger", "Direkt an Geometrie", "Mit Abstand zur Geometrie", "Automatisch freie Ecke", "Links oben", "Rechts oben", "Links unten", "Rechts unten" }) _position.Items.Add(label);
+        foreach (var label in new[] { "Neben Mauszeiger", "Direkt an Geometrie", "Mit Abstand zur Geometrie", "Automatisch freie Ecke", "Links oben", "Rechts oben", "Links unten", "Rechts unten", "Fest: Oben Links (Immer sichtbar)", "Fest: Oben Rechts (Immer sichtbar)", "Fest: Unten Links (Immer sichtbar)", "Fest: Unten Rechts (Immer sichtbar)" }) _position.Items.Add(label);
         foreach (var label in new[] { "Direkt", "Kompakt", "Manuell" }) _uxMode.Items.Add(label);
         foreach (var kind in ActionCatalog.Kinds) _selectionKind.Items.Add(kind.ToString());
         
