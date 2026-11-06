@@ -105,7 +105,10 @@ internal sealed class ContextAssistController : IDisposable
     private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e)
     {
         if (_popup != null && _popup.IsPinned)
+        {
+            _due = DateTime.UtcNow.AddMilliseconds(_settings.SelectionDelayMs);
             return;
+        }
         HideRequest(false);
     }
 
