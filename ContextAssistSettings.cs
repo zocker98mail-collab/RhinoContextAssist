@@ -330,6 +330,10 @@ internal sealed class ContextAssistSettings
     {
         var n = DateTime.UtcNow;
         Usage[id] = Usage.TryGetValue(id, out var u) ? u with { Count = u.Count + 1, LastUsedUtc = n } : new(id, 1, n);
-        Save();
+        try
+        {
+            _store.SetString("Usage", JsonSerializer.Serialize(Usage));
+        }
+        catch { }
     }
 }

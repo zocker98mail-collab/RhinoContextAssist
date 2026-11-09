@@ -1,10 +1,12 @@
 using Eto.Forms;
 using Rhino;
+using Rhino.Commands;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 using Rhino.UI;
 using System;
+using System.Linq;
 
 namespace RhinoContextAssist;
 
@@ -15,6 +17,8 @@ internal sealed class ContextAssistController : IDisposable
     private readonly ContextAssistAnchorConduit _conduit;
     private ContextAssistPopup? _popup;
     private bool _manuallyClosedFixed;
+    private bool _isUndoing;
+    private string? _pendingMacro;
     private DateTime _due = DateTime.MaxValue;
     private Guid _lastViewportId = Guid.Empty;
     private ShortcutMouseCallback? _mouseCallback;
@@ -23,7 +27,7 @@ internal sealed class ContextAssistController : IDisposable
     {
         _settings = settings;
         _conduit = new ContextAssistAnchorConduit();
-        _timer = new UITimer { Interval = 0.03 };
+        _timer = new UITimer { Interval = 0.05 }; // 50ms (20 FPS) statt 30ms spart massiv UI-Thread-Overhead
         _timer.Elapsed += (_, _) => Tick();
     }
 
@@ -38,6 +42,7 @@ internal sealed class ContextAssistController : IDisposable
         DisplayPipeline.CalculateBoundingBox += OnCalculateBoundingBox;
         Rhino.Commands.Command.BeginCommand += OnBeginCommand;
         Rhino.Commands.Command.EndCommand += OnEndCommand;
+        Rhino.Commands.Command.UndoRedo += OnUndoRedo;
         RhinoApp.EscapeKeyPressed += OnEscapeKeyPressed;
         RhinoApp.KeyboardEvent += OnKeyboardEvent;
         _timer.Start();
@@ -71,7 +76,7 @@ internal sealed class ContextAssistController : IDisposable
         
         if (_popup != null)
         {
-            _popup.RepositionAndClamp();
+            OpenForCurrentSelection(doc);
             return;
         }
 
@@ -95,8 +100,24 @@ internal sealed class ContextAssistController : IDisposable
         }
     }
 
+    private void OnUndoRedo(object? sender, UndoRedoEventArgs e)
+    {
+        if (e.IsBeginUndo || e.IsBeginRedo)
+        {
+            _isUndoing = true;
+            _due = DateTime.MaxValue;
+        }
+        else if (e.IsEndUndo || e.IsEndRedo)
+        {
+            _isUndoing = false;
+            _due = DateTime.UtcNow.AddMilliseconds(Math.Max(120, _settings.SelectionDelayMs));
+        }
+    }
+
     private void OnSelectionChanged(object? sender, RhinoObjectSelectionEventArgs e)
     {
+        if (_isUndoing) return;
+
         _manuallyClosedFixed = false;
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         if (_popup != null && (_popup.IsPinned || isFixedMode))
@@ -111,6 +132,8 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e)
     {
+        if (_isUndoing) return;
+
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         if (_popup != null && (_popup.IsPinned || isFixedMode))
         {
@@ -155,7 +178,7 @@ internal sealed class ContextAssistController : IDisposable
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         if (_popup != null && (_popup.IsPinned || isFixedMode))
         {
-            _due = DateTime.UtcNow.AddMilliseconds(Math.Min(80, _settings.SelectionDelayMs));
+            _due = DateTime.UtcNow.AddMilliseconds(Math.Min(100, _settings.SelectionDelayMs));
         }
     }
 
@@ -174,14 +197,12 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnKeyboardEvent(int key)
     {
-        if (_popup is not { IsVisible: true } || _popup.IsSearchFocused)
+        if (_popup is not { IsVisible: true } || _popup.IsSearchFocused || _isUndoing)
             return;
 
-        // Wenn gerade ein Rhino-Befehl aktiv ist (z.B. _Inset fragt nach Abstand), niemals Shortcuts ausführen!
         if (Rhino.Commands.Command.InCommand() || Rhino.Commands.Command.InScriptRunnerCommand())
             return;
 
-        // Nur reagieren, wenn keine laufende Befehlseingabe in der Rhino-Kommandozeile steht (bzw. gerade erst die eine Ziffer getippt wurde)
         string currentPrompt = RhinoApp.CommandPrompt ?? string.Empty;
 
         if (_settings.EnableNumberShortcuts && currentPrompt.Length <= 1)
@@ -198,7 +219,6 @@ internal sealed class ContextAssistController : IDisposable
                 {
                     if (_popup != null && !Rhino.Commands.Command.InCommand())
                     {
-                        // Lösche die in der Rhino-Kommandozeile getippte Ziffer, bevor das Makro startet
                         RhinoApp.CommandPrompt = string.Empty;
                         _popup.TryExecuteShortcutIndex(shortcutIdx);
                     }
@@ -215,6 +235,8 @@ internal sealed class ContextAssistController : IDisposable
 
     private void Tick()
     {
+        if (_isUndoing) return;
+
         var doc = RhinoDoc.ActiveDoc;
         if (!_settings.Enabled || doc == null || Rhino.Commands.Command.InScriptRunnerCommand())
             return;
@@ -227,11 +249,16 @@ internal sealed class ContextAssistController : IDisposable
             return;
         }
 
+        // Schneller Sync-Check ohne teure Dokument-Iteration (O(1) über GetSelectedObjects)
         if (_popup is { IsVisible: true } && (_popup.IsPinned || isFixedMode) && _due == DateTime.MaxValue && !Rhino.Commands.Command.InCommand())
         {
-            bool anySelected = doc.Objects.GetSelectedObjects(false, false).Any()
-                               || doc.Objects.Any(o => o.GetSelectedSubObjects()?.Length > 0);
+            bool anySelected = doc.Objects.GetSelectedObjects(false, false).Any();
             if (!anySelected && _popup.CurrentSelectionKind != SelectionKind.None)
+            {
+                OpenForCurrentSelection(doc);
+                return;
+            }
+            if (anySelected && _popup.CurrentSelectionKind == SelectionKind.None)
             {
                 OpenForCurrentSelection(doc);
                 return;
@@ -247,6 +274,8 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OpenForCurrentSelection(RhinoDoc doc)
     {
+        if (_isUndoing) return;
+
         var context = SelectionAnalyzer.Analyze(doc);
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         
@@ -280,9 +309,11 @@ internal sealed class ContextAssistController : IDisposable
             _conduit.Enabled = true;
             activeView?.Redraw();
         }
-        else
+        else if (_conduit.Enabled)
         {
             _conduit.Enabled = false;
+            _conduit.HighlightMode = null;
+            activeView?.Redraw();
         }
 
         if (_popup == null)
@@ -309,8 +340,28 @@ internal sealed class ContextAssistController : IDisposable
         if (_popup == null || (!_popup.IsPinned && !isFixedMode && action.Id != "selprev"))
             HideRequest(false);
 
+        QueueMacroExecution(action.Macro);
+    }
+
+    internal void QueueMacroExecution(string macro)
+    {
+        _pendingMacro = macro;
         ContextAssistPopup.ReturnFocusToRhino();
-        RhinoApp.RunScript(action.Macro, false);
+        RhinoApp.Idle -= OnIdleExecuteMacro;
+        RhinoApp.Idle += OnIdleExecuteMacro;
+    }
+
+    private void OnIdleExecuteMacro(object? sender, EventArgs e)
+    {
+        RhinoApp.Idle -= OnIdleExecuteMacro;
+        var macro = _pendingMacro;
+        _pendingMacro = null;
+        if (string.IsNullOrWhiteSpace(macro)) return;
+
+        ContextAssistPopup.ReturnFocusToRhino();
+        RhinoApp.RunScript(macro, false);
+
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         if (_popup != null && (_popup.IsPinned || isFixedMode))
         {
             _due = DateTime.UtcNow.AddMilliseconds(100);
@@ -332,18 +383,24 @@ internal sealed class ContextAssistController : IDisposable
         if (_conduit.Enabled)
         {
             _conduit.Enabled = false;
+            _conduit.HighlightMode = null;
             _conduit.AnchorWorld = Point3d.Unset;
             _conduit.ToolbarScreenAnchor = null;
             RhinoDoc.ActiveDoc?.Views.ActiveView?.Redraw();
         }
 
-        try { _popup?.Close(); } catch { }
+        var p = _popup;
         _popup = null;
+        if (p != null)
+        {
+            try { p.SafeClose(); } catch { }
+        }
     }
 
     public void Dispose()
     {
         _timer.Stop();
+        RhinoApp.Idle -= OnIdleExecuteMacro;
         RhinoDoc.SelectObjects -= OnSelectionChanged;
         RhinoDoc.DeselectObjects -= OnSelectionChanged;
         RhinoDoc.DeselectAllObjects -= OnSelectionCleared;
@@ -353,6 +410,7 @@ internal sealed class ContextAssistController : IDisposable
         DisplayPipeline.CalculateBoundingBox -= OnCalculateBoundingBox;
         Rhino.Commands.Command.BeginCommand -= OnBeginCommand;
         Rhino.Commands.Command.EndCommand -= OnEndCommand;
+        Rhino.Commands.Command.UndoRedo -= OnUndoRedo;
         RhinoApp.EscapeKeyPressed -= OnEscapeKeyPressed;
         RhinoApp.KeyboardEvent -= OnKeyboardEvent;
         if (_mouseCallback != null)

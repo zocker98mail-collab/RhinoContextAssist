@@ -55,7 +55,7 @@ public partial class ContextAssistPopup : Window
         _requestClose = requestClose;
         _settings = settings;
         _conduit = conduit;
-        _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(25), DispatcherPriority.Render, (_, _) => Tick(), Dispatcher);
+        _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher);
         SourceInitialized += InitializeNativeWindow;
     }
 
@@ -149,6 +149,7 @@ public partial class ContextAssistPopup : Window
                         doc.Objects.UnselectAll();
                         doc.Views.Redraw();
                     }
+                    ReturnFocusToRhino();
                 }
                 e.Handled = true;
             }
@@ -525,12 +526,19 @@ public partial class ContextAssistPopup : Window
 
     private static double Distance(WpfPoint first, WpfPoint second) => Math.Sqrt((first.X - second.X) * (first.X - second.X) + (first.Y - second.Y) * (first.Y - second.Y));
 
+    private bool _cameraRepositionPending;
+
     internal void OnViewportCameraChanged()
     {
-        if (!IsVisible || _userManuallyDragged || !_settings.FollowCameraMovement) return;
+        if (!IsVisible || _userManuallyDragged || !_settings.FollowCameraMovement || _cameraRepositionPending) return;
         if (_activeMode is PopupPositionMode.Geometry or PopupPositionMode.GeometryOffset or PopupPositionMode.AutoViewportCorner)
         {
-            Dispatcher.BeginInvoke(new Action(RepositionAndClamp), DispatcherPriority.Render);
+            _cameraRepositionPending = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _cameraRepositionPending = false;
+                RepositionAndClamp();
+            }), DispatcherPriority.Background);
         }
     }
 
@@ -723,6 +731,15 @@ public partial class ContextAssistPopup : Window
         }
     }
 
+    internal void SafeClose()
+    {
+        try { _timer.Stop(); } catch { }
+        try { More.IsOpen = false; } catch { }
+        try { if (LayerPopup != null) LayerPopup.IsOpen = false; } catch { }
+        try { SourceInitialized -= InitializeNativeWindow; } catch { }
+        try { Close(); } catch { }
+    }
+
     // Close button (always forces close, overriding Pin and Fixed mode)
     private void Close_Click(object sender, RoutedEventArgs e)
     {
@@ -730,7 +747,14 @@ public partial class ContextAssistPopup : Window
         _requestClose(true);
     }
 
-    private void FadeTo(double opacity) => BeginAnimation(OpacityProperty, new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(120)));
+    private double _targetOpacity = -1.0;
+
+    private void FadeTo(double opacity)
+    {
+        if (Math.Abs(_targetOpacity - opacity) < 0.005) return;
+        _targetOpacity = opacity;
+        BeginAnimation(OpacityProperty, new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(120)));
+    }
 
     private void InitializeNativeWindow(object? sender, EventArgs e) => SetWindowLongPtr(new WindowInteropHelper(this).Handle, -8, RhinoApp.MainWindowHandle());
 
@@ -752,7 +776,10 @@ public partial class ContextAssistPopup : Window
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         _requestClose(true);
-        RhinoApp.RunScript("! _-OptionsPage ContextAssist _Enter", false);
+        if (ContextAssistPlugIn.Instance?.Controller != null)
+            ContextAssistPlugIn.Instance.Controller.QueueMacroExecution("! _-OptionsPage ContextAssist _Enter");
+        else
+            RhinoApp.RunScript("! _-OptionsPage ContextAssist _Enter", false);
     }
 
     private void InitializeLayerButton()
@@ -894,15 +921,24 @@ public partial class ContextAssistPopup : Window
             
             btn.Click += (s, args) =>
             {
-                var selectedObjects = doc.Objects.GetSelectedObjects(false, false).ToList();
-                foreach (var obj in selectedObjects)
+                uint undoRecord = doc.BeginUndoRecord("Context Assist: Layer ändern");
+                try
                 {
-                    obj.Attributes.LayerIndex = layer.Index;
-                    obj.CommitChanges();
+                    var selectedObjects = doc.Objects.GetSelectedObjects(false, false).ToList();
+                    foreach (var obj in selectedObjects)
+                    {
+                        obj.Attributes.LayerIndex = layer.Index;
+                        obj.CommitChanges();
+                    }
+                }
+                finally
+                {
+                    if (undoRecord > 0) doc.EndUndoRecord(undoRecord);
                 }
                 doc.Views.Redraw();
                 InitializeLayerButton();
                 LayerPopup.IsOpen = false;
+                ReturnFocusToRhino();
             };
 
             LayerResults.Items.Add(btn);
@@ -939,6 +975,7 @@ public partial class ContextAssistPopup : Window
                     _hiddenDueToBackgroundApp = true;
                     CloseSubMenusIfOpen();
                     IsHitTestVisible = false;
+                    _targetOpacity = 0.0;
                     BeginAnimation(OpacityProperty, null);
                     Opacity = 0.0;
                 }
