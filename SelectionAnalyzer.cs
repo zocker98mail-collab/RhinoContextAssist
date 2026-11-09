@@ -1,23 +1,117 @@
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Geometry;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace RhinoContextAssist;
 
 internal static class SelectionAnalyzer
 {
     private const int MaxAnalyzedObjects = 250;
+    private static readonly HashSet<Guid> TrackedObjectIds = new();
+
+    internal static void TrackSelectedObjects(IEnumerable<RhinoObject>? objects)
+    {
+        if (objects == null) return;
+        foreach (var o in objects)
+        {
+            if (o != null && o.Id != Guid.Empty)
+                TrackedObjectIds.Add(o.Id);
+        }
+    }
+
+    internal static void ClearTrackedObjects() => TrackedObjectIds.Clear();
+
+    internal static List<RhinoObject> GetEffectiveSelectedObjects(RhinoDoc doc)
+    {
+        var s = doc.Objects.GetSelectedObjects(includeLights: false, includeGrips: false)
+            .Where(o => o != null && o.IsValid && !o.IsDeleted)
+            .ToList();
+
+        if (s.Count > 0)
+        {
+            foreach (var o in s) TrackedObjectIds.Add(o.Id);
+            return s;
+        }
+
+        // 1. O(1) Fast-Path: Prüfe zuerst die über SelectObjects gemerkten Objekt-IDs auf Sub-Objekt-Auswahl
+        if (TrackedObjectIds.Count > 0)
+        {
+            var deadIds = new List<Guid>();
+            foreach (var id in TrackedObjectIds)
+            {
+                var obj = doc.Objects.FindId(id);
+                if (obj == null || !obj.IsValid || obj.IsDeleted)
+                {
+                    deadIds.Add(id);
+                    continue;
+                }
+                if (obj.IsSelected(checkSubObjects: true) > 0 || obj.GetSelectedSubObjects() is { Length: > 0 })
+                {
+                    s.Add(obj);
+                }
+                else
+                {
+                    deadIds.Add(id);
+                }
+            }
+            foreach (var dead in deadIds) TrackedObjectIds.Remove(dead);
+            if (s.Count > 0) return s;
+        }
+
+        // 2. Fallback: Nur sichtbare, entsperrte NormalObjects über IsSelected(true) prüfen
+        var settings = new ObjectEnumeratorSettings
+        {
+            NormalObjects = true,
+            LockedObjects = false,
+            HiddenObjects = false,
+            ReferenceObjects = true,
+            IncludeLights = false,
+            IncludeGrips = false
+        };
+
+        foreach (var o in doc.Objects.GetObjectList(settings))
+        {
+            if (o != null && o.IsValid && !o.IsDeleted && o.IsSelected(checkSubObjects: true) > 0)
+            {
+                s.Add(o);
+                TrackedObjectIds.Add(o.Id);
+            }
+        }
+
+        return s;
+    }
+
+    internal static bool HasAnySelectionFast(RhinoDoc doc)
+    {
+        if (doc.Objects.GetSelectedObjects(false, false).Any())
+            return true;
+
+        if (TrackedObjectIds.Count > 0)
+        {
+            foreach (var id in TrackedObjectIds.ToList())
+            {
+                var obj = doc.Objects.FindId(id);
+                if (obj != null && obj.IsValid && !obj.IsDeleted &&
+                    (obj.IsSelected(checkSubObjects: true) > 0 || obj.GetSelectedSubObjects() is { Length: > 0 }))
+                {
+                    return true;
+                }
+                TrackedObjectIds.Remove(id);
+            }
+        }
+
+        return false;
+    }
 
     internal static SelectionContext Analyze(RhinoDoc doc)
     {
         if (doc == null)
             return new(SelectionKind.None, ContextLevel.Basic, 0, "Keine Auswahl", Point3d.Unset);
 
-        // Include grip/subobject-selected objects directly via GetSelectedObjects(true, false)
-        // to avoid iterating over ALL objects in the document!
-        var s = doc.Objects.GetSelectedObjects(includeLights: false, includeGrips: false)
-            .Where(o => o != null && o.IsValid && !o.IsDeleted)
-            .ToList();
+        var s = GetEffectiveSelectedObjects(doc);
 
         if (s.Count == 0)
             return new(SelectionKind.None, ContextLevel.Basic, 0, "Keine Auswahl", Point3d.Unset);
@@ -142,7 +236,6 @@ internal static class SelectionAnalyzer
             {
                 if (o?.Geometry != null)
                 {
-                    // getBoundingBox(false) uses fast cached bounding box instead of accurate=true NURBS tessellation
                     var ob = o.Geometry.GetBoundingBox(false);
                     if (ob.IsValid) b.Union(ob);
                 }

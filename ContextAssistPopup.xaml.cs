@@ -787,7 +787,7 @@ public partial class ContextAssistPopup : Window
         var doc = RhinoDoc.ActiveDoc;
         if (doc == null) return;
         
-        var selectedObjects = doc.Objects.GetSelectedObjects(false, false).ToList();
+        var selectedObjects = SelectionAnalyzer.GetEffectiveSelectedObjects(doc);
         if (selectedObjects.Count == 0)
         {
             LayerButton.Visibility = Visibility.Collapsed;
@@ -924,7 +924,7 @@ public partial class ContextAssistPopup : Window
                 uint undoRecord = doc.BeginUndoRecord("Context Assist: Layer ändern");
                 try
                 {
-                    var selectedObjects = doc.Objects.GetSelectedObjects(false, false).ToList();
+                    var selectedObjects = SelectionAnalyzer.GetEffectiveSelectedObjects(doc);
                     foreach (var obj in selectedObjects)
                     {
                         obj.Attributes.LayerIndex = layer.Index;

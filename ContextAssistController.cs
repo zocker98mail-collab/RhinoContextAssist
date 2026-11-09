@@ -116,6 +116,9 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnSelectionChanged(object? sender, RhinoObjectSelectionEventArgs e)
     {
+        if (e.Selected && e.RhinoObjects != null)
+            SelectionAnalyzer.TrackSelectedObjects(e.RhinoObjects);
+
         if (_isUndoing) return;
 
         _manuallyClosedFixed = false;
@@ -132,6 +135,7 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e)
     {
+        SelectionAnalyzer.ClearTrackedObjects();
         if (_isUndoing) return;
 
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
@@ -249,10 +253,10 @@ internal sealed class ContextAssistController : IDisposable
             return;
         }
 
-        // Schneller Sync-Check ohne teure Dokument-Iteration (O(1) über GetSelectedObjects)
+        // Schneller Sync-Check ohne teure Dokument-Iteration (inkl. Tracked Sub-Objects)
         if (_popup is { IsVisible: true } && (_popup.IsPinned || isFixedMode) && _due == DateTime.MaxValue && !Rhino.Commands.Command.InCommand())
         {
-            bool anySelected = doc.Objects.GetSelectedObjects(false, false).Any();
+            bool anySelected = SelectionAnalyzer.HasAnySelectionFast(doc);
             if (!anySelected && _popup.CurrentSelectionKind != SelectionKind.None)
             {
                 OpenForCurrentSelection(doc);
