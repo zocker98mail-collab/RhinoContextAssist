@@ -37,6 +37,7 @@ internal sealed class ContextAssistController : IDisposable
         RhinoView.SetActive += OnActiveViewChanged;
         DisplayPipeline.CalculateBoundingBox += OnCalculateBoundingBox;
         Rhino.Commands.Command.BeginCommand += OnBeginCommand;
+        Rhino.Commands.Command.EndCommand += OnEndCommand;
         RhinoApp.EscapeKeyPressed += OnEscapeKeyPressed;
         RhinoApp.KeyboardEvent += OnKeyboardEvent;
         _timer.Start();
@@ -149,6 +150,15 @@ internal sealed class ContextAssistController : IDisposable
             _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(false)));
     }
 
+    private void OnEndCommand(object? sender, Rhino.Commands.CommandEventArgs e)
+    {
+        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+        if (_popup != null && (_popup.IsPinned || isFixedMode))
+        {
+            _due = DateTime.UtcNow.AddMilliseconds(Math.Min(80, _settings.SelectionDelayMs));
+        }
+    }
+
     private void OnEscapeKeyPressed(object? sender, EventArgs e)
     {
         if (_popup != null)
@@ -215,6 +225,17 @@ internal sealed class ContextAssistController : IDisposable
         {
             OpenForCurrentSelection(doc);
             return;
+        }
+
+        if (_popup is { IsVisible: true } && (_popup.IsPinned || isFixedMode) && _due == DateTime.MaxValue && !Rhino.Commands.Command.InCommand())
+        {
+            bool anySelected = doc.Objects.GetSelectedObjects(false, false).Any()
+                               || doc.Objects.Any(o => o.GetSelectedSubObjects()?.Length > 0);
+            if (!anySelected && _popup.CurrentSelectionKind != SelectionKind.None)
+            {
+                OpenForCurrentSelection(doc);
+                return;
+            }
         }
 
         if (_due == DateTime.MaxValue || DateTime.UtcNow < _due)
@@ -290,6 +311,10 @@ internal sealed class ContextAssistController : IDisposable
 
         ContextAssistPopup.ReturnFocusToRhino();
         RhinoApp.RunScript(action.Macro, false);
+        if (_popup != null && (_popup.IsPinned || isFixedMode))
+        {
+            _due = DateTime.UtcNow.AddMilliseconds(100);
+        }
     }
 
     public void HideRequest(bool force)
@@ -327,6 +352,7 @@ internal sealed class ContextAssistController : IDisposable
         RhinoView.SetActive -= OnActiveViewChanged;
         DisplayPipeline.CalculateBoundingBox -= OnCalculateBoundingBox;
         Rhino.Commands.Command.BeginCommand -= OnBeginCommand;
+        Rhino.Commands.Command.EndCommand -= OnEndCommand;
         RhinoApp.EscapeKeyPressed -= OnEscapeKeyPressed;
         RhinoApp.KeyboardEvent -= OnKeyboardEvent;
         if (_mouseCallback != null)

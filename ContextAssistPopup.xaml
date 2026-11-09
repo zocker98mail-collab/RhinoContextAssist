@@ -6,7 +6,7 @@
         Background="Transparent"
         ShowInTaskbar="False"
         ShowActivated="False"
-        Topmost="True"
+        Topmost="False"
         SizeToContent="WidthAndHeight"
         ResizeMode="NoResize"
         PreviewKeyDown="Window_PreviewKeyDown">

@@ -534,9 +534,12 @@ public partial class ContextAssistPopup : Window
         }
     }
 
+    private bool _hiddenDueToBackgroundApp;
+
     private void Tick()
     {
-        if (!IsVisible) return;
+        UpdateAppForegroundState();
+        if (!IsVisible || _hiddenDueToBackgroundApp) return;
         UpdateCameraTrackingAndOcclusion();
         if (_hiddenDueToOffscreen) return;
 
@@ -741,6 +744,8 @@ public partial class ContextAssistPopup : Window
     };
 
     public bool IsPinned => PinButton.IsChecked == true;
+    internal SelectionKind CurrentSelectionKind => _context?.Kind ?? SelectionKind.None;
+    internal int CurrentSelectionCount => _context?.Count ?? 0;
     public bool IsSearchFocused => SearchBox.IsFocused || LayerSearchBox.IsFocused;
 
     
@@ -916,6 +921,39 @@ public partial class ContextAssistPopup : Window
         return false;
     }
 
+    private void UpdateAppForegroundState()
+    {
+        try
+        {
+            IntPtr fgHwnd = GetForegroundWindow();
+            if (fgHwnd == IntPtr.Zero) return;
+
+            GetWindowThreadProcessId(fgHwnd, out uint fgPid);
+            uint currentPid = (uint)Environment.ProcessId;
+            bool isRhinoActive = fgPid == currentPid && !IsIconic(RhinoApp.MainWindowHandle());
+
+            if (!isRhinoActive)
+            {
+                if (!_hiddenDueToBackgroundApp)
+                {
+                    _hiddenDueToBackgroundApp = true;
+                    CloseSubMenusIfOpen();
+                    IsHitTestVisible = false;
+                    BeginAnimation(OpacityProperty, null);
+                    Opacity = 0.0;
+                }
+            }
+            else if (_hiddenDueToBackgroundApp)
+            {
+                _hiddenDueToBackgroundApp = false;
+                IsHitTestVisible = true;
+                _lastInteraction = DateTime.UtcNow;
+                FadeTo((IsMouseOver ? _settings.ActiveOpacity : _settings.IdleOpacity) / 100d);
+            }
+        }
+        catch { }
+    }
+
     internal static void ReturnFocusToRhino()
     {
         try
@@ -926,6 +964,15 @@ public partial class ContextAssistPopup : Window
         }
         catch { }
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
