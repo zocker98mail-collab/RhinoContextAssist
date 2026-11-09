@@ -191,8 +191,15 @@ internal sealed class ContextAssistController : IDisposable
         if (e.CommandEnglishName != null && e.CommandEnglishName.StartsWith("ContextAssist", StringComparison.OrdinalIgnoreCase))
             return;
             
-        if (_popup != null && !_popup.IsPinned && _settings.PositionMode < PopupPositionMode.FixedTopLeft)
-            _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(false)));
+        if (_popup != null)
+        {
+            _popup.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _popup?.CloseSubMenusIfOpen();
+                if (_popup != null && !_popup.IsPinned && _settings.PositionMode < PopupPositionMode.FixedTopLeft)
+                    HideRequest(false);
+            }));
+        }
     }
 
     private void OnEndCommand(object? sender, Rhino.Commands.CommandEventArgs e)

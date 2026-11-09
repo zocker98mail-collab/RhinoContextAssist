@@ -88,10 +88,18 @@ public partial class ContextAssistPopup : Window
         Primary.Children.Add(moreButton);
         More.PlacementTarget = moreButton;
 
-        if (More.IsOpen)
+        if (_preserveSubMenusOnUpdate)
         {
-            SearchBox_TextChanged(SearchBox, null!);
-            AdjustMorePopupPlacementAndClamp();
+            if (More.IsOpen)
+            {
+                SearchBox_TextChanged(SearchBox, null!);
+                AdjustMorePopupPlacementAndClamp();
+            }
+        }
+        else
+        {
+            More.IsOpen = false;
+            if (LayerPopup != null) LayerPopup.IsOpen = false;
         }
 
         InitializeLayerButton();
@@ -112,10 +120,17 @@ public partial class ContextAssistPopup : Window
         }
     }
 
+    private bool _preserveSubMenusOnUpdate;
+
     private void More_Opened(object sender, EventArgs e)
     {
         // Setzt den Fokus bei Öffnen direkt ins Suchfeld
         SearchBox.Focus();
+    }
+
+    private void More_Closed(object sender, EventArgs e)
+    {
+        RepositionAndClamp();
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -196,6 +211,9 @@ public partial class ContextAssistPopup : Window
                 var firstBtn = SearchResults.Items.OfType<System.Windows.Controls.Button>().FirstOrDefault() ?? (SearchResults.Items[0] as System.Windows.Controls.Button);
                 if (firstBtn != null && firstBtn.Tag is ContextAction action)
                 {
+                    More.IsOpen = false;
+                    if (LayerPopup != null) LayerPopup.IsOpen = false;
+                    ReturnFocusToRhino();
                     _execute(action);
                     e.Handled = true;
                     return;
@@ -264,6 +282,8 @@ public partial class ContextAssistPopup : Window
 
         button.Click += (_, _) =>
         {
+            More.IsOpen = false;
+            if (LayerPopup != null) LayerPopup.IsOpen = false;
             ReturnFocusToRhino();
             _execute(action);
         };
@@ -271,7 +291,15 @@ public partial class ContextAssistPopup : Window
         {
             _settings.ToggleFavorite(_context.Kind, action.Id);
             mouseEvent.Handled = true;
-            UpdateActions(_context, ActionService.Get(_context, _settings));
+            _preserveSubMenusOnUpdate = true;
+            try
+            {
+                UpdateActions(_context, ActionService.Get(_context, _settings));
+            }
+            finally
+            {
+                _preserveSubMenusOnUpdate = false;
+            }
             Dispatcher.BeginInvoke(new Action(RepositionAndClamp), DispatcherPriority.Loaded);
         };
         
@@ -949,6 +977,8 @@ public partial class ContextAssistPopup : Window
     {
         if (idx >= 0 && idx < _primaryActions.Count)
         {
+            More.IsOpen = false;
+            if (LayerPopup != null) LayerPopup.IsOpen = false;
             ReturnFocusToRhino();
             _execute(_primaryActions[idx]);
             return true;
