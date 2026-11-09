@@ -25,8 +25,11 @@ internal static class ActionService
             .Where(x => Applicable(x, c))
             .ToList();
 
-        if (c.Kind is SelectionKind.SolidBrep or SelectionKind.Brep or SelectionKind.Mesh or SelectionKind.MultipleEnvelopeObjects)
-            list.Add(Envelope);
+        if (c.Kind is SelectionKind.SolidBrep or SelectionKind.Brep or SelectionKind.Mesh or SelectionKind.MultipleEnvelopeObjects or SelectionKind.Multiple or SelectionKind.Mixed)
+        {
+            if (list.All(x => x.Id != Envelope.Id))
+                list.Add(Envelope);
+        }
 
         return s.Order(k, list);
     }

@@ -51,7 +51,8 @@ internal sealed record ContextAction(
     string Category = "Bearbeiten",
     bool Destructive = false,
     string Requirement = "Any",
-    bool Custom = false);
+    bool Custom = false,
+    bool Secondary = false);
 
 internal sealed record ActionPreference(
     string Id,

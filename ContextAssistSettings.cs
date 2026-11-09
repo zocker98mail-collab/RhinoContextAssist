@@ -137,7 +137,7 @@ internal sealed class ContextAssistSettings
     private static List<ActionPreference> BuildDefaultPreferencesForKind(SelectionKind kind)
     {
         var defaults = ActionCatalog.Defaults(kind).Select(x => new ActionPreference(x.Id, true, false)).ToList();
-        if (kind is SelectionKind.SolidBrep or SelectionKind.Brep or SelectionKind.Mesh or SelectionKind.Multiple)
+        if (kind is SelectionKind.SolidBrep or SelectionKind.Brep or SelectionKind.Mesh or SelectionKind.Multiple or SelectionKind.Mixed)
         {
             if (defaults.All(x => x.Id != "boundingboxcurves")) defaults.Add(new ActionPreference("boundingboxcurves", true, false));
         }
@@ -303,6 +303,7 @@ internal sealed class ContextAssistSettings
 
         return a.Where(x => !map.ContainsKey(x.Id) || map[x.Id].Enabled)
             .OrderByDescending(x => map.TryGetValue(x.Id, out var m) && m.Favorite)
+            .ThenBy(x => x.Secondary && !(map.TryGetValue(x.Id, out var mf) && mf.Favorite))
             .ThenByDescending(x => AutomaticPrioritization && x.Id == lastUsedId)
             .ThenByDescending(x => AutomaticPrioritization && Usage.TryGetValue(x.Id, out var u) ? u.Count : 0)
             .ThenBy(x => map.TryGetValue(x.Id, out var m) ? m.I : int.MaxValue)
