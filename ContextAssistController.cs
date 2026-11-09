@@ -1,4 +1,3 @@
-using Eto.Forms;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
@@ -12,14 +11,16 @@ namespace RhinoContextAssist;
 
 internal sealed class ContextAssistController : IDisposable
 {
-    private readonly UITimer _timer;
     private readonly ContextAssistSettings _settings;
     private readonly ContextAssistAnchorConduit _conduit;
     private ContextAssistPopup? _popup;
     private bool _manuallyClosedFixed;
     private bool _isUndoing;
+    private bool _clearSelectionPending;
     private string? _pendingMacro;
     private DateTime _due = DateTime.MaxValue;
+    private DateTime _lastIdleCheck = DateTime.MinValue;
+    private DateTime _undoCooldownUntil = DateTime.MinValue;
     private Guid _lastViewportId = Guid.Empty;
     private ShortcutMouseCallback? _mouseCallback;
 
@@ -27,8 +28,6 @@ internal sealed class ContextAssistController : IDisposable
     {
         _settings = settings;
         _conduit = new ContextAssistAnchorConduit();
-        _timer = new UITimer { Interval = 0.05 }; // 50ms (20 FPS) statt 30ms spart massiv UI-Thread-Overhead
-        _timer.Elapsed += (_, _) => Tick();
     }
 
     public void Start()
@@ -45,7 +44,7 @@ internal sealed class ContextAssistController : IDisposable
         Rhino.Commands.Command.UndoRedo += OnUndoRedo;
         RhinoApp.EscapeKeyPressed += OnEscapeKeyPressed;
         RhinoApp.KeyboardEvent += OnKeyboardEvent;
-        _timer.Start();
+        RhinoApp.Idle += OnRhinoIdle;
         
         RefreshMouseTrigger();
     }
@@ -73,13 +72,6 @@ internal sealed class ContextAssistController : IDisposable
         _manuallyClosedFixed = false;
         var doc = RhinoDoc.ActiveDoc;
         if (doc == null) return;
-        
-        if (_popup != null)
-        {
-            OpenForCurrentSelection(doc);
-            return;
-        }
-
         OpenForCurrentSelection(doc);
     }
 
@@ -105,12 +97,15 @@ internal sealed class ContextAssistController : IDisposable
         if (e.IsBeginUndo || e.IsBeginRedo)
         {
             _isUndoing = true;
+            _undoCooldownUntil = DateTime.UtcNow.AddMilliseconds(350);
             _due = DateTime.MaxValue;
+            SelectionAnalyzer.ClearTrackedObjects();
         }
         else if (e.IsEndUndo || e.IsEndRedo)
         {
             _isUndoing = false;
-            _due = DateTime.UtcNow.AddMilliseconds(Math.Max(120, _settings.SelectionDelayMs));
+            _undoCooldownUntil = DateTime.UtcNow.AddMilliseconds(200);
+            _due = DateTime.UtcNow.AddMilliseconds(Math.Max(220, _settings.SelectionDelayMs));
         }
     }
 
@@ -119,7 +114,11 @@ internal sealed class ContextAssistController : IDisposable
         if (e.Selected && e.RhinoObjects != null)
             SelectionAnalyzer.TrackSelectedObjects(e.RhinoObjects);
 
-        if (_isUndoing) return;
+        if (_isUndoing || DateTime.UtcNow < _undoCooldownUntil)
+        {
+            _due = DateTime.UtcNow.AddMilliseconds(250);
+            return;
+        }
 
         _manuallyClosedFixed = false;
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
@@ -136,7 +135,11 @@ internal sealed class ContextAssistController : IDisposable
     private void OnSelectionCleared(object? sender, RhinoDeselectAllObjectsEventArgs e)
     {
         SelectionAnalyzer.ClearTrackedObjects();
-        if (_isUndoing) return;
+        if (_isUndoing || DateTime.UtcNow < _undoCooldownUntil)
+        {
+            _due = DateTime.UtcNow.AddMilliseconds(250);
+            return;
+        }
 
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         if (_popup != null && (_popup.IsPinned || isFixedMode))
@@ -147,11 +150,15 @@ internal sealed class ContextAssistController : IDisposable
         HideRequest(false);
     }
 
-    private void OnDocumentEventHide(object? sender, DocumentEventArgs e) => HideRequest(false);
+    private void OnDocumentEventHide(object? sender, DocumentEventArgs e)
+    {
+        SelectionAnalyzer.ClearTrackedObjects();
+        HideRequest(false);
+    }
 
     private void OnActiveViewChanged(object? sender, ViewEventArgs e)
     {
-        if (e.View == null) return;
+        if (e.View == null || _isUndoing) return;
         var newId = e.View.ActiveViewportID;
         if (newId != _lastViewportId && _popup is { IsVisible: true })
         {
@@ -164,25 +171,44 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnCalculateBoundingBox(object? sender, CalculateBoundingBoxEventArgs e)
     {
-        if (_popup is { IsVisible: true } && _settings.FollowCameraMovement)
+        if (!_isUndoing && _popup is { IsVisible: true } && _settings.FollowCameraMovement)
             _popup.OnViewportCameraChanged();
     }
 
     private void OnBeginCommand(object? sender, Rhino.Commands.CommandEventArgs e)
     {
+        if (e.CommandEnglishName != null &&
+            (e.CommandEnglishName.Equals("Undo", StringComparison.OrdinalIgnoreCase) ||
+             e.CommandEnglishName.Equals("Redo", StringComparison.OrdinalIgnoreCase)))
+        {
+            _isUndoing = true;
+            _undoCooldownUntil = DateTime.UtcNow.AddMilliseconds(350);
+            _due = DateTime.MaxValue;
+            SelectionAnalyzer.ClearTrackedObjects();
+            return;
+        }
+
         if (e.CommandEnglishName != null && e.CommandEnglishName.StartsWith("ContextAssist", StringComparison.OrdinalIgnoreCase))
             return;
             
-        if (_popup != null)
+        if (_popup != null && !_popup.IsPinned && _settings.PositionMode < PopupPositionMode.FixedTopLeft)
             _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(false)));
     }
 
     private void OnEndCommand(object? sender, Rhino.Commands.CommandEventArgs e)
     {
+        if (e.CommandEnglishName != null &&
+            (e.CommandEnglishName.Equals("Undo", StringComparison.OrdinalIgnoreCase) ||
+             e.CommandEnglishName.Equals("Redo", StringComparison.OrdinalIgnoreCase)))
+        {
+            _isUndoing = false;
+            _undoCooldownUntil = DateTime.UtcNow.AddMilliseconds(200);
+        }
+
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         if (_popup != null && (_popup.IsPinned || isFixedMode))
         {
-            _due = DateTime.UtcNow.AddMilliseconds(Math.Min(100, _settings.SelectionDelayMs));
+            _due = DateTime.UtcNow.AddMilliseconds(Math.Max(120, _settings.SelectionDelayMs));
         }
     }
 
@@ -201,7 +227,7 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OnKeyboardEvent(int key)
     {
-        if (_popup is not { IsVisible: true } || _popup.IsSearchFocused || _isUndoing)
+        if (_popup is not { IsVisible: true } || _popup.IsSearchFocused || _isUndoing || DateTime.UtcNow < _undoCooldownUntil)
             return;
 
         if (Rhino.Commands.Command.InCommand() || Rhino.Commands.Command.InScriptRunnerCommand())
@@ -233,28 +259,65 @@ internal sealed class ContextAssistController : IDisposable
 
         if ((key >= 65 && key <= 90) || (key >= 48 && key <= 57))
         {
-            _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(false)));
+            if (!_popup.IsPinned && _settings.PositionMode < PopupPositionMode.FixedTopLeft)
+                _popup.Dispatcher.BeginInvoke(new Action(() => HideRequest(false)));
         }
     }
 
-    private void Tick()
+    private void OnRhinoIdle(object? sender, EventArgs e)
     {
         if (_isUndoing) return;
 
+        var now = DateTime.UtcNow;
+        if (now < _undoCooldownUntil) return;
+
+        // 1. Ausstehende Auswahl-Aufhebung (durch ESC im Popup) sicher im Rhino-Idle ausführen
+        if (_clearSelectionPending)
+        {
+            _clearSelectionPending = false;
+            var activeDoc = RhinoDoc.ActiveDoc;
+            if (activeDoc != null && !Rhino.Commands.Command.InCommand())
+            {
+                activeDoc.Objects.UnselectAll();
+                activeDoc.Views.Redraw();
+            }
+            return;
+        }
+
+        // 2. Ausstehendes Makro sicher im Rhino-Idle ausführen
+        if (!string.IsNullOrWhiteSpace(_pendingMacro))
+        {
+            var macro = _pendingMacro;
+            _pendingMacro = null;
+            ContextAssistPopup.ReturnFocusToRhino();
+            RhinoApp.RunScript(macro, false);
+
+            bool fixedModeAfterMacro = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
+            if (_popup != null && (_popup.IsPinned || fixedModeAfterMacro))
+            {
+                _due = DateTime.UtcNow.AddMilliseconds(120);
+            }
+            return;
+        }
+
+        // Throttle Idle-Checks auf max. alle 60ms
+        if ((now - _lastIdleCheck).TotalMilliseconds < 60)
+            return;
+        _lastIdleCheck = now;
+
         var doc = RhinoDoc.ActiveDoc;
-        if (!_settings.Enabled || doc == null || Rhino.Commands.Command.InScriptRunnerCommand())
+        if (!_settings.Enabled || doc == null || Rhino.Commands.Command.InCommand() || Rhino.Commands.Command.InScriptRunnerCommand())
             return;
 
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
         
-        if (isFixedMode && _popup == null && !_manuallyClosedFixed && !Rhino.Commands.Command.InCommand())
+        if (isFixedMode && _popup == null && !_manuallyClosedFixed)
         {
             OpenForCurrentSelection(doc);
             return;
         }
 
-        // Schneller Sync-Check ohne teure Dokument-Iteration (inkl. Tracked Sub-Objects)
-        if (_popup is { IsVisible: true } && (_popup.IsPinned || isFixedMode) && _due == DateTime.MaxValue && !Rhino.Commands.Command.InCommand())
+        if (_popup is { IsVisible: true } && (_popup.IsPinned || isFixedMode) && _due == DateTime.MaxValue)
         {
             bool anySelected = SelectionAnalyzer.HasAnySelectionFast(doc);
             if (!anySelected && _popup.CurrentSelectionKind != SelectionKind.None)
@@ -269,7 +332,7 @@ internal sealed class ContextAssistController : IDisposable
             }
         }
 
-        if (_due == DateTime.MaxValue || DateTime.UtcNow < _due)
+        if (_due == DateTime.MaxValue || now < _due)
             return;
 
         _due = DateTime.MaxValue;
@@ -278,7 +341,7 @@ internal sealed class ContextAssistController : IDisposable
 
     private void OpenForCurrentSelection(RhinoDoc doc)
     {
-        if (_isUndoing) return;
+        if (_isUndoing || DateTime.UtcNow < _undoCooldownUntil) return;
 
         var context = SelectionAnalyzer.Analyze(doc);
         bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
@@ -351,25 +414,11 @@ internal sealed class ContextAssistController : IDisposable
     {
         _pendingMacro = macro;
         ContextAssistPopup.ReturnFocusToRhino();
-        RhinoApp.Idle -= OnIdleExecuteMacro;
-        RhinoApp.Idle += OnIdleExecuteMacro;
     }
 
-    private void OnIdleExecuteMacro(object? sender, EventArgs e)
+    internal void QueueClearSelection()
     {
-        RhinoApp.Idle -= OnIdleExecuteMacro;
-        var macro = _pendingMacro;
-        _pendingMacro = null;
-        if (string.IsNullOrWhiteSpace(macro)) return;
-
-        ContextAssistPopup.ReturnFocusToRhino();
-        RhinoApp.RunScript(macro, false);
-
-        bool isFixedMode = _settings.PositionMode >= PopupPositionMode.FixedTopLeft;
-        if (_popup != null && (_popup.IsPinned || isFixedMode))
-        {
-            _due = DateTime.UtcNow.AddMilliseconds(100);
-        }
+        _clearSelectionPending = true;
     }
 
     public void HideRequest(bool force)
@@ -403,8 +452,7 @@ internal sealed class ContextAssistController : IDisposable
 
     public void Dispose()
     {
-        _timer.Stop();
-        RhinoApp.Idle -= OnIdleExecuteMacro;
+        RhinoApp.Idle -= OnRhinoIdle;
         RhinoDoc.SelectObjects -= OnSelectionChanged;
         RhinoDoc.DeselectObjects -= OnSelectionChanged;
         RhinoDoc.DeselectAllObjects -= OnSelectionCleared;

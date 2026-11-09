@@ -36,7 +36,8 @@ internal static class SelectionAnalyzer
             return s;
         }
 
-        // 1. O(1) Fast-Path: Prüfe zuerst die über SelectObjects gemerkten Objekt-IDs auf Sub-Objekt-Auswahl
+        // O(1) Fast-Path: Prüfe ausschließlich die über SelectObjects gemerkten Objekt-IDs auf Sub-Objekt-Auswahl.
+        // Niemals doc.Objects.GetObjectList() aufrufen, da das bei großen Modellen oder nach Undo Rhino einfriert!
         if (TrackedObjectIds.Count > 0)
         {
             var deadIds = new List<Guid>();
@@ -58,27 +59,6 @@ internal static class SelectionAnalyzer
                 }
             }
             foreach (var dead in deadIds) TrackedObjectIds.Remove(dead);
-            if (s.Count > 0) return s;
-        }
-
-        // 2. Fallback: Nur sichtbare, entsperrte NormalObjects über IsSelected(true) prüfen
-        var settings = new ObjectEnumeratorSettings
-        {
-            NormalObjects = true,
-            LockedObjects = false,
-            HiddenObjects = false,
-            ReferenceObjects = true,
-            IncludeLights = false,
-            IncludeGrips = false
-        };
-
-        foreach (var o in doc.Objects.GetObjectList(settings))
-        {
-            if (o != null && o.IsValid && !o.IsDeleted && o.IsSelected(checkSubObjects: true) > 0)
-            {
-                s.Add(o);
-                TrackedObjectIds.Add(o.Id);
-            }
         }
 
         return s;

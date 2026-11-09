@@ -143,13 +143,9 @@ public partial class ContextAssistPopup : Window
                 }
                 else
                 {
-                    var doc = RhinoDoc.ActiveDoc;
-                    if (doc != null)
-                    {
-                        doc.Objects.UnselectAll();
-                        doc.Views.Redraw();
-                    }
                     ReturnFocusToRhino();
+                    if (ContextAssistPlugIn.Instance?.Controller != null)
+                        ContextAssistPlugIn.Instance.Controller.QueueClearSelection();
                 }
                 e.Handled = true;
             }
@@ -371,10 +367,13 @@ public partial class ContextAssistPopup : Window
 
     private (double Width, double Height) MeasureAndUpdateLayout()
     {
-        UpdateLayout();
-        Measure(new WpfSize(double.PositiveInfinity, double.PositiveInfinity));
-        UpdateLayout();
-        return (ActualWidth > 1 ? ActualWidth : (DesiredSize.Width > 1 ? DesiredSize.Width : 260), ActualHeight > 1 ? ActualHeight : (DesiredSize.Height > 1 ? DesiredSize.Height : 56));
+        if (ActualWidth <= 1 || ActualHeight <= 1)
+        {
+            try { UpdateLayout(); } catch { }
+        }
+        double w = ActualWidth > 1 ? ActualWidth : (DesiredSize.Width > 1 ? DesiredSize.Width : 260);
+        double h = ActualHeight > 1 ? ActualHeight : (DesiredSize.Height > 1 ? DesiredSize.Height : 56);
+        return (w, h);
     }
 
     internal void RepositionAndClamp()
@@ -896,7 +895,7 @@ public partial class ContextAssistPopup : Window
             layers = layers.Where(l => parts.All(p => l.FullPath.Contains(p, StringComparison.OrdinalIgnoreCase))).ToList();
         }
 
-        foreach (var layer in layers)
+        foreach (var layer in layers.Take(150))
         {
             var c = layer.Color;
             var sp = new StackPanel { Orientation = Orientation.Horizontal };
